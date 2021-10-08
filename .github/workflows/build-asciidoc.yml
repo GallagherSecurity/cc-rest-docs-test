@@ -1,6 +1,7 @@
+# Many thanks to James Read:
 # https://blog.jread.com/auto-build-and-host-pretty-html-documentation-using-asciidoc-github-pages-github-actions-758a03f93d7d
 
-name: build adocs
+name: Build asciidocs
 
 on:
   push:
@@ -17,13 +18,16 @@ jobs:
       id: adocbuild
       uses: avattathil/asciidoctor-action@master
       with:
-          program: "time > start && asciidoctor training/README2.adoc && time > done"
-    - name: Deploy docs to ghpages
+          program: "asciidoctor -o training/index.html training/rest_training.adoc"
+    - name: Deploy to github pages.
       uses: peaceiris/actions-gh-pages@v3
       with: 
-#        deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
         github_token: ${{ secrets.GITHUB_TOKEN }}
+        # Cannot publish to master from master.
+        # Github pages is configured to publish from gh-pages branch
         publish_branch: gh-pages
+        # Publish everything.
         publish_dir: ./
+        # Including our static HTML.
         keep_files: true
         
