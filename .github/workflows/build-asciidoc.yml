@@ -28,8 +28,8 @@ jobs:
         publish_branch: gh-pages
         # Publish everything.
         publish_dir: ./
-        # Including our static HTML.
-        keep_files: true
+        # This is the default.  Flush everything found in the gh-pages branch.
+        keep_files: false
         # Keep producing an index.html from README.me please
         enable_jekyll: true
         
