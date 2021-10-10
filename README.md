@@ -1,4 +1,4 @@
-# Command Centre REST API
+# Gallagher Command Centre REST API
 
 In 2020 this Github repository became the authoritative source of the reference documentation for
 Command Centre's REST API.

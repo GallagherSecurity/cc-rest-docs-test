@@ -18,7 +18,7 @@ jobs:
       id: adocbuild
       uses: avattathil/asciidoctor-action@master
       with:
-          program: "asciidoctor -o training/index.html training/rest_training.adoc"
+          program: "asciidoctor -o training/training.html training/rest_training.adoc"
     - name: Deploy to github pages.
       uses: peaceiris/actions-gh-pages@v3
       with: 
@@ -30,4 +30,6 @@ jobs:
         publish_dir: ./
         # Including our static HTML.
         keep_files: true
+        # Keep producing an index.html from README.me please
+        enable_jekyll: true
         
