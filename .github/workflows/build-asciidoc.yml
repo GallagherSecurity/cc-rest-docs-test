@@ -23,13 +23,19 @@ jobs:
       uses: peaceiris/actions-gh-pages@v3
       with: 
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        # Cannot publish to master from master.
-        # Github pages is configured to publish from gh-pages branch
+        # Cannot publish to master from master, otherwise generated files would end up alongside
+        # their source files.  The repo's 'pages' is configured to publish from gh-pages branch
+        # (Settings -> Pages).
         publish_branch: gh-pages
-        # Publish everything.
+
+        # Publish the whole tree.  The default is /public.
         publish_dir: ./
-        # This is the default.  Flush everything found in the gh-pages branch.
+
+        # This is the default.  Flush gh-pages branch before publishing.
         keep_files: false
-        # Keep producing an index.html from README.me please
+
+        # Keep producing an index.html from README.me please.
         enable_jekyll: true
         
+        # There is no point in keeping the history of the gh-pages branch.
+        force_orphan: true
