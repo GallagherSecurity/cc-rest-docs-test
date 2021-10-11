@@ -21,7 +21,23 @@ splash the whole branch and the old ones will eventually get GCd out of the repo
 There aren't that many images and they will not change often, so I'm not sure it is worth it.
 
 
-Editing Markdown
+Editing Asciidoc
+================
+
+You do not need to preview small edits to the .adoc file.  Simply make your change and push it to
+github.  It will convert it to HTML using asciidoctor and publish it to github.io.
+
+If you want to preview your changes before pushing them to github (which you must, if your edits
+include markup), you need asciidoctor.  It's Ruby, so installing it is simply:
+
+1. `gem install asciidoctor`
+2. I also had to gem `install rouge` to get syntax highlighting in the output HTML.
+
+Now `asciidoctor training.adoc` will generate a `training.html` that you can preview in a browser.
+Do not commit `training.html` to github!  There is a .gitignore in there to help revent that.
+
+
+Editing Markdown (obsolete, now that the document is in Asciidoc rather than Markdown)
 ================
 
 Do it any editor you prefer.  You do not need a preview because
