@@ -53,13 +53,61 @@ info:
 
     #### Cardholder API changes on the roadmap
 
-    * A future version will sort its search results differently and may increase the number it
-    returns per page, if your query does not include parameters to override the defaults.
+    * BREAKING CHANGE:  a future version will sort its search results differently if your query does
+      not include a parameter to override the default.
+
+    * Current versions of the API only show a PDF on a cardholder if he or she has a value for that
+      PDF.  That makes it difficult to find out which PDFs a cardholder _could_ have, so a future
+      version will allow you to ask for all of them.
+
+    * You will be able to request the competencies that your operator has the permission to assign.
+      That is determined by privileges, a competency setting, and an operator group setting.
+      Current versions let you request the competencies that your operator has the permission to
+      view, which is a larger set determined by privileges alone, and not suitable for interactive
+      REST clients.
+
+    * Email address and mobile number PDFs will show whether they are suitable to receive SMS and
+      email notifications.
+
+    * Card PINs (write-only).
+
+    #### Cardholder API changes in 8.90
+
+    * You can set a reason when re-issuing or removing a card, and the reason appears on the
+      resulting event.  The default is the card's previous state.
+
+    #### Cardholder API changes in 8.80
+
+    * BREAKING CHANGE:  Date PDFs no longer come out of the API with a time component or time zone
+      designator, because date PDFs don't hold a time or time zone.  Previously they came out as
+      midnight UTC, which implied more accuracy than date PDFs hold.
+
+    * [Redactions](#tag-Redactions).
+
+    * An optional PDF field `operatorAccess` contains the level of access your operator has to
+      cardholders' values for the PDF.
+
+    * Card type `regex` and `regexDescription` fields.
+
+    * Email and mobile PDFs return their 'Default Notifications' flag on request.  This actually
+      happened in 8.50 but did not make it into the "changes" list.
 
     #### Cardholder API changes in 8.70
 
+    * BREAKING CHANGE: Missing image PDFs will no longer have "not captured" as their value.
+      Instead, they will have no value at all.
+
     * A cardholder's operator group memberships (added in 8.50) now contain an href that you can use
       in an HTTP DELETE as another way of removing a cardholder from an operator group.
+    * The server returns 1000 items by default instead of 100.
+    * Image PDFs tell you whether they are the cardholder's profile picture.
+    * Image PDFs have a new optional field `contentType` that returns their MIME type.  This
+      deprecates the old `imageFormat` field, which is non-standard.
+    * Asking for a particular PDF on a cardholder will cause it to appear even if the cardholder has
+      no value for that PDF.  Previous versions only showed if it had a non-blank value.
+    * Attempting to give a cardholder a competency they already have will fail instead of allowing
+      it and raising an alarm.  Note that a cardholder having two links to the same competency leads
+      to undefined behaviour.
 
     #### Cardholder API changes in 8.60
 
@@ -67,6 +115,9 @@ info:
     * 8.60 rejects unsupported HTTP verbs instead of treating them like a GET.  For example, if you
     send a POST to `/api/competencies` 8.50 will return a list of competencies but 8.60 will return
     a 400-level error.
+    * In build 8.60.1684 or later, attempting to give a cardholder a competency they already have
+      will fail instead of allowing it and raising an alarm.  Note that a cardholder having two
+      links to the same competency leads to undefined behaviour.
 
     #### API changes in 8.50
 
@@ -86,6 +137,8 @@ info:
 
     * Image Personal Data Field definitions will show their width, height, and format (JPG, PNG, or
       BMP) on request.
+
+    * Email and mobile PDFs return their 'Default Notifications' flag on request.
 
     #### API changes in 8.40
 
@@ -155,8 +208,8 @@ info:
 
     * When downloading a significant number of items, sort by ID.
 
-    * Set your page size as large as your client can handle.  The default used to be 100; using the
-      `top` parameter to take it to 1000 or more gives _much_ better throughput.
+    * Set your page size as large as your client can handle.  The default was 100 before 8.70; using
+      the `top` parameter to take it to 1000 or more gives _much_ better throughput.
 
     To give you an idea of the effect of setting `sort` and `top`, here are some timings for a
     download of 200,000 cardholders from CC 8.40:
@@ -178,6 +231,9 @@ info:
       It adds to the payload size, though, so only do this if you are certain that the search will
       not return too many cardholders you are not interested in.
 
+    * If you are writing an integration that synchronises users from a source of truth to Command
+      Centre, see the 'Synchronising a user directory' use case in the Cardholders section.
+
     * If you must get an object's details page, and you are on v8.00 or later, using the [`fields`
       parameter](#topic-Field-specifiers) will still save work.  Be explicit with what you want:  do
       not use `fields=defaults` unless you need every field that 'defaults' gives you and you
@@ -188,9 +244,11 @@ info:
       are interrupted, you will not end up with a partially-configured cardholder.
 
     * When searching for a cardholder (or any other object) by name or PDF value, if you have the
-      exact string, put it in quotes `"..."`.  Otherwise Command Centre will perform a substring
-      search, which is slower and may return more results than you need.  Even with quotes, the
-      search is case-insensitive.
+      exact string, put it in quotes `"..."`.  It is still a case-insensitive search but it attempts
+      to match the entire string.  Without the quotes Command Centre will perform a substring
+      search, which is slower and may return more results than you need.  In one test, a substring
+      search of half a million cardholders took more than ten seconds, but with quotes it took a
+      tenth of a second.  That is a 100x speedup.
 
     * When modifying a cardholder, do all your operations in one PATCH.  This is much quicker than
       doing it in several smaller PATCHes.
@@ -506,55 +564,81 @@ tags:
     clients.
 
     The first use case below introduces the main entry point.  It is a paginated search interface
-    that gives you very basic data for any number of cardholders.  Most important is a field called
-    'href', which serves both as a unique identifier for the cardholder and the location of what we
-    call his or her _details_ page.  You can submit an HTTP GET to that href to retrieve the entire
-    cardholder record, or an HTTP PATCH to update it, or an HTTP DELETE to remove it.  Be careful:
-    there is no coming back from deleting a cardholder.
+    that gives you basic data for any number of cardholders.  You won't receive many fields by
+    default, but you can ask for more using the `fields` query parameter.
+
+    A field called 'href' serves both as a unique identifier for the cardholder and the location of
+    what we call his or her _details_ page.  You can submit an HTTP GET to that href to retrieve the
+    entire cardholder record, or an HTTP PATCH to update it, or an HTTP DELETE to remove it.  Be
+    careful:  there is no coming back from deleting a cardholder.
 
     ### Use cases
 
     #### Searching for cardholders by name
     1. `GET /api`.
-    2. Follow the link at `features.cardholders.cardholders.href`, appending a search term
-       (described [below](#operation--api-cardholders-get)) to narrow the results and the 'fields'
-      parameter to add the fields you need.
+    2. Follow the link at `features.cardholders.cardholders.href`
+       [↪](#operation--api-cardholders-get), appending a search term to narrow the results and the
+       'fields' parameter to add the fields you need.
     3. Process the results, following the `next` link until there isn't one.
+
+    #### Synchronising a user directory
+
+    This is the fastest way of synchronising a large body of users on a source system with Command
+    Centre:
+
+    1. Get all cardholders from CC, taking note of the efficiency tips in this document.  That
+       should take only a few minutes per 100,000 cardholders.
+    2. Compare them with your upstream user directory and compute a set of deltas:  cardholders to
+       create, modify, and delete.
+    3. Apply those changes to Command Centre.
+
+    That is how Gallagher's cardholder-synchronising integrations work.
 
     #### Searching for cardholders by Personal Data Field value
 
     Say you want to find a cardholder with a particular employee ID, and Command Centre is
     holding that in a personal data field called "employee_ID".
 
+    First, reconsider, and look at the 'Synchronising a user directory' use case above.  If you are
+    going to be doing this for many cardholders, GETting cardholders in bulk and filtering out the
+    interesting ones client-side is more efficient than a large number of unique PDF searches.  You
+    don't have to get all cardholders; you could get all cardholders in one division, or all
+    cardholders with a non-blank value for your PDF (shown below), or a combination.  It will be
+    quicker than a sequence of searches that return one cardholder each.
+
     Before you can start a cardholder search, you must find the PDF's identifier.
 
     1. `GET /api`.
 
-    2. v8.00 or earlier:  follow the link at `features.items.items.href`, appending the query
-       `?name="employee_id"`.  This will return every item in the system with that name.  Pick the
-       one with a type name of 'Personal Data Field'.  Or you could append `&type=33` to the item
+    2. v8.00 or earlier:  follow the link at `features.items.items.href`
+       [↪](events.html#operation--api-items-get), appending the query `name="employee_id"` (after a
+       `?` or `&`, of course).  This will return every item in the system with that name.  Pick the
+       one with a type name of 'Personal Data Field'.  Or you could append `type=33` to the item
        search:  you will only be shown PDFs.
 
-    2. v8.10 or later:  follow the link at `features.personalDataFields.personalDataFields.href`,
-       appending the query `?name="employee_id"`.  This will return every PDF in the system with
-       that name (there should only be one since PDFs must have different names).
+    2. v8.10 or later:  follow the link at `features.personalDataFields.personalDataFields.href`
+       [↪](#operation--api-personal_data_fields-get), appending the query `name="employee_id"`.
+       This will return every PDF in the system with that name (there should only be one since PDFs
+       must have different names).
 
     3. Note the ID of the item.  It will be a short alphanumeric.
 
     Case does not matter when searching by name but remember the quotes:  Command Centre will
-    perform a substring match if you omit them, and (for the example above) return you the PDFs
-    'previous_employee_ID' and 'employee_ID_allocated_flag', assuming you had PDFs with those names.
+    perform a substring match if you omit them, which is vastly slower and (for the example above)
+    return you the PDFs 'previous_employee_ID' and 'employee_ID_allocated_flag', assuming you had
+    PDFs with those names.
 
     Now you can use that PDF ID in a cardholder search.
 
     1. Recall the JSON object you received from `GET /api`.
-    2. Follow the link at `features.cardholders.cardholders.href`, adding a query
-    separator and `pdf_<your_pdf_id>=<your_pdf_value>`, without the angle brackets.
+    2. Follow the link at `features.cardholders.cardholders.href`
+       [↪](#operation--api-cardholders-get), adding a query separator and
+       `pdf_<your_pdf_id>=<your_pdf_value>`, without the angle brackets.
 
     The results will only include cardholders who have *\<your_pdf_value>* as a substring of
     the Personal Data Field with ID *\<your_pdf_id>*.  Again, the search is
-    case-insensitive and quotes anchor it at each end.  In our example we would `GET
-    /api/cardholders?pdf_345="EID8888"`.
+    case-insensitive and you should bookend *\<your_pdf_value>* with quotes if you want to anchor it at
+    each end.  In our example we would `GET /api/cardholders?pdf_345="EID8888"`.
 
     Use a percent sign `%` for *\<your_pdf_value>* if you want to see all cardholders who have a
     non-blank value for that PDF.
@@ -572,12 +656,13 @@ tags:
     3. Do the same for the competencies, relationships (`roles`), lockers, PDF definitions, and
     cards/credentials (`cardTypes`) that your new cardholder needs, using other URLs in the
     'features' section of `/api`.  In v8.10, the card types that your operator has the privilege to
-    assign are at a new URL given in the field `features.cardTypes.assign.href`.
+    assign are at a new URL given in the field `features.cardTypes.assign.href`
+    [↪](#operation--api-card_types-assign-get).
 
     4. Compose a JSON body using [this example](#definition-Cardholder-POST-example) and
     [this detail](#definition-Cardholder-detail), then
     [POST](#operation--api-cardholders-post) it to the href at
-    `features.cardholders.cardholders.href` on the `/api` page.
+    `features.cardholders.cardholders.href` [↪](#operation--api-cardholders-post) on the `/api` page.
 
     #### Modifying a cardholder
     1. Find your cardholder using one of the processes above.
@@ -622,7 +707,8 @@ tags:
     #### Assigning a new card to a cardholder
 
     1. `GET /api`.
-    2. Follow the link at `features.cardTypes.cardTypes.href` to find the href for the new card's type.
+    2. Follow the link at `features.cardTypes.cardTypes.href` [↪](#operation--api-card_types-get) to
+       find the href for the new card's type.
     3. If you want to create a card in a state other than the default, get the state from the same page.
     4. Find the href for the cardholder using one of the search methods above.
     5. Optional:  follow the link at `edit.href` on the cardholder page.  If there is a link at
@@ -641,7 +727,9 @@ tags:
 
     #### Updating a cardholder's location
     1. Find the href of your target access zone using the link at
-       `features.cardholders.updateLocationAccessZones` in the results of `GET /api`.
+       `features.cardholders.updateLocationAccessZones`
+       [↪](rest.html#operation--api-access_zones--update_cardholder_location-get) in the results of
+       `GET /api`.
     1. Find your cardholder using one of the processes above.  If you are using
        [search](#operation--api-cardholders-get), add `updateLocation` to the `fields` parameter to
        save you having to GET their details page later.
@@ -661,9 +749,10 @@ tags:
     #### Downloading all cardholders 
     1. `GET /api`
 
-    2. Follow the link at `features.cardholders.cardholders.href`.  This is effectively a cardholder
-    search with no filters.  You should add `sort` and `top` query parameters to sort by ID and
-    increase the number of cardholders per page:  see the efficiency tips!
+    2. Follow the link at `features.cardholders.cardholders.href`
+       [↪](#operation--api-cardholders-get).  This is effectively a cardholder search with no
+       filters.  You should add `sort` and `top` query parameters to sort by ID and increase the
+       number of cardholders per page:  see the efficiency tips!
 
     3. Process the bundle of cardholders in the result.
     4. Follow the link at `next.href` if there is one, and repeat.
@@ -674,17 +763,16 @@ tags:
     [details](#operation--api-cardholders--id--get) operations' `fields` parameter and the [change
     tracking](#operation--api-cardholders-changes-get) operation's `fields` and `filter` parameters
     take a list of field names.  Other sections of this document describe how those parameters
-    affect the API calls, but their format is the same and the exhaustive list is long so rather
-    than repeat it for each call, this section will cover it once.
+    affect the API calls, but their format is the same so this section will cover it once.
 
     You can form the name of a field by joining the components of its JSON path with dots.  Fields
     at the root level of the cardholder object, such as `firstName` and `@emailAddress` (a PDF),
     have just one component.  Fields that are one level down, such as `accessGroups.status`, have
     two.
 
-    Treat the string matches as case sensitive:  use 'lastName' rather than 'lastname'.
+    Treat the string matches as case sensitive:  use `lastName` rather than `lastname`.
 
-    This is the list you can choose from in 8.30:
+    To serve as examples, this is the list you can choose from in 8.30:
 
     `href`, `id`, `firstName`, `lastName`, `shortName`, `description`, `authorised`,
     `lastSuccessfulAccessTime`, `lastSuccessfulAccessZone`, `division`,
@@ -703,6 +791,10 @@ tags:
     `cards.relationships.href`, `cards.relationships.cardholder`, `cards.relationships.role`,
     `cards.lockers.href`, `cards.lockers.locker`, `cards.lockers.from`, `cards.lockers.until`
 
+    Later versions of Command Centre added many more.  See the
+    [details](#operation--api-cardholders--id--get) operation for the complete list of cardholder
+    fields.
+
     A special value `default` applies a default set of fields that varies with the call you're
     making.
 
@@ -712,8 +804,10 @@ tags:
 - name: Cardholder changes
   description: |
     This feature keeps you up to date with cardholder changes.  It works for changes coming from all
-    sources, including the thick clients, EDI, Active Directory, remote servers, and the other
+    sources, including Gallagher's clients, EDI, Active Directory, remote servers, and the other
     cardholder APIs.
+
+    It first appeared in version 8.30.
 
     Because it also reports changes made through the REST API, it will tell you about your own
     changes.  If you are using this API both for managing cardholders and as a source of truth, you
@@ -729,22 +823,24 @@ tags:
 
         1a. `GET /api`
 
-        1b. Follow the link at `features.cardholders.changes`.
+        1b. Follow the link at `features.cardholders.changes` [↪](#operation--api-cardholders-changes-get).
 
-        1c. Take note of the href that was in the `next` block.
+        1c. Take note of the href in the `next` block.  This is your bookmark.  Later on you will
+        ask for all the changes that happen after this point.
 
-    1. Download all cardholders out of Command Centre using [this
-       advice](#downloading-all-cardholders).  Here is a reminder:
+    1. If you are filling a user directory from Command Centre, download all cardholders using [this
+    advice](#downloading-all-cardholders).  Here is a reminder:
 
         2a. Using the results of `GET /api` again, follow the link at
-          `features.cardholders.cardholders`, adding query parameters `top=1000` and `sort=id`.
+          `features.cardholders.cardholders` [↪](#operation--api-cardholders-get), adding query
+          parameters `top=1000` and `sort=id`.
 
         2b. Process those cardholders (probably 1000) and follow the `next.href` link in
           a loop until you have extracted all of them.
 
     1. This is the start of your update loop.  The first time through, to catch the changes that
-       came in during the big download you were doing in step two, use the href that you got in step
-       one.  Simply GET it.
+       came in during the big download you did in step two, use the href that you got in step one.
+       Simply GET it.
 
     1. If the `results` array you get back is empty you are up to date and you have nothing to do.
        Sleep for a time before your next poll, to avoid a tight loop and ease the load on your
@@ -752,8 +848,8 @@ tags:
        the URL to use sometimes changes even when there are no results, so always get it from
        `next.href`.
 
-    1. If the `results` array is not empty it will contain the first changes after your previous
-    call.  The sections below will help you process them.
+    1. If the `results` array is not empty it will contain the first changes that happened after
+    your previous call.  The sections below will help you process them.
 
     1. Restart your polling loop using the link in `next.href`.
 
@@ -763,8 +859,9 @@ tags:
       as user codes, passwords, card PINs, car park assignments, biometric credentials, and (in
       versions before 8.50) operator settings.
 
-    - There is a known issue in 8.50 preventing operator groups changes coming out of this API.
-      Changes to the other five operator settings work correctly.
+    - There is a known issue in 8.50 preventing operator group membership changes coming out of this
+      API.  It was fixed in 8.60.  Changes to the other five operator settings work correctly in
+      8.50.
 
     - The API will return the pre-change values of some fields, but not those that require a lot of
       storage such as image PDFs and PIV certificates.  Command Centre does not hang on to them
@@ -791,16 +888,18 @@ tags:
     #### Finding members of an access group, and managing memberships.
 
     1. `GET /api`.
-    2. Follow the link at `features.accessGroups.accessGroups.href` (adding search terms, and
-       setting `top` high to save pagination).
-    3. Find your access group.
+    2. Follow the link at `features.accessGroups.accessGroups.href`
+       [↪](#operation--api-access_groups-get) (adding search terms, and setting `top` high to save
+       pagination).
+    3. Find your access group in the results.
 
-    4. The link at `cardholders` returns the cardholders who have *direct* membership of your group.
-    This is only a subset of the cardholders who are affected by that group, as the groups that list
-    this group as their parent inherit its effects recursively.  If you are after every cardholder
-    who has *effective* membership of your group, follow the group's href to get its detail page,
-    which includes its child groups in an array called `children`.  In a depth-first traversal you
-    would recurse down through the hrefs in that array before proceeding.
+    4. The link at `cardholders` [↪](#operation--api-access_groups--id--cardholders-get) returns the
+    cardholders who have *direct* membership of your group.  This is only a subset of the
+    cardholders who are affected by that group, as the groups that list this group as their parent
+    inherit its effects recursively.  If you are after every cardholder who has *effective*
+    membership of your group, follow the group's href to get its detail page, which includes its
+    child groups in an array called `children`.  In a depth-first traversal you would recurse down
+    through the hrefs in that array before proceeding.
 
     5. Get the link at `cardholders` (which is the same on the search results and the details page),
     look in that cardholder's `accessGroups` array, and manage each membership as you require.  Send
@@ -810,8 +909,9 @@ tags:
     #### Building the group hierarchy.
 
     1. `GET /api`.
-    2. Follow the link at `features.accessGroups.accessGroups.href`.  If you follow the efficiency
-       tips in the cardholder section you will add `top` and `sort` parameters.
+    2. Follow the link at `features.accessGroups.accessGroups.href`
+       [↪](#operation--api-access_groups-get).  If you follow the efficiency tips in the cardholder
+       section you will add `top` and `sort` parameters.
     3. Record each group's href, name (if you intend to display the results), and `parent.href`,
        if it is there.  An access group may have no parents or one parent, never more.
     4. Follow the link at `next.href`, if there is one, and repeat.
@@ -829,6 +929,10 @@ tags:
 
     Notification settings on the competency cause advance warnings to go to the cardholder and his
     or her related cardholders (line managers, for example) before the competency expires.
+
+    Competencies differ from access groups in that a cardholder can have only one link to a given
+    competency.  Attempting to create another will either fail or raise a stateful alarm depending
+    on your version of Command Centre.
 
     The REST API gives you read access to competencies through the same two functions as other
     objects:  search and details, described below.
@@ -886,15 +990,16 @@ tags:
     #### Displaying all banks and lockers, and the cardholders assigned to them
 
     1. `GET /api`
-    2. Follow the link at `features.lockerBanks.lockerBanks.href`, adding a search term to the query
-       to thin out the results.
+    2. Follow the link at `features.lockerBanks.lockerBanks.href`
+       [↪](#operation--api-locker_banks-get), adding a search term to the query to thin out the
+       results.
     3. Follow the href of the locker bank you are after.
 
     The results of that query are the [locker bank detail](#definition-Locker-bank-detail).
 
     #### Assigning a locker to a cardholder
 
-    2. Find the href of the locker, as above.  Normally one that does not have someone already allocated.
+    1. Find the href of the locker, as above.  Normally one that does not have someone already allocated.
 
     1. Find the href of the cardholder using the [cardholders
        API](#operation--api-cardholders-get).
@@ -910,13 +1015,15 @@ tags:
     their details pages.
 
     1. `GET /api`
-    2. Follow the link at `features.lockerBanks.lockerBanks.href`, adding `?` or `&` as appropriate
-       then `fields=name,lockers.name,lockers.shortName,lockers.commands`.  Also add a search term
-       to thin out the results, if you have a lot of locker banks.
-    3. Dig through the 'results' array for your locker bank, then through the 'lockers' array for
-       your locker, then into the 'commands' block for another block called 'open'.  If your
-       operator is able to override that locker it will contain a field called 'href', giving the
-       URL you need to [POST](#operation--api-lockers--id--open-post) to open the locker.
+    2. Follow the link at `features.lockerBanks.lockerBanks.href`
+       [↪](#operation--api-locker_banks-get), adding `?` or `&` as appropriate then
+       `fields=name,lockers.name,lockers.shortName,lockers.commands`.  Also add a search term to
+       thin out the results, if you have a lot of locker banks.
+    3. Dig through the results for your locker bank, then through the `lockers` array of that locker
+       bank for your locker, then into the `commands` block of that locker for another block called
+       `open`.  If your operator is able to override that locker it will contain a field called
+       `href`, giving the URL you need to [POST](#operation--api-lockers--id--open-post) to open the
+       locker.
 
 - name: Operator groups
 
@@ -956,8 +1063,9 @@ tags:
     #### Finding members of an operator group, and managing memberships.
 
     1. `GET /api`.
-    2. Follow the link at `features.operatorGroups.operatorGroups.href` (adding search terms, and
-       setting `top` high to save pagination).
+    2. Follow the link at `features.operatorGroups.operatorGroups.href`
+       [↪](#operation--api-operator_groups-get) (adding search terms, and setting `top` high to save
+       pagination).
     3. Find your operator group.
 
     4. The link at `cardholders` returns the cardholders who have membership of your group.
@@ -974,7 +1082,8 @@ tags:
     (text, image, numeric, ...) and optional constraints on the values that it can hold.  For
     example, text, email, and telephone number types can have a regular expression with
     which new values must match.  A date can have a maximum and a minimum.  Text PDFs can have a
-    list of valid values, like an enumeration.
+    list of valid values, like an enumeration.  Mobile numbers and email addresses have a flag
+    indicating whether they are suitable to receive SMS and email notifications.
 
     There is more configuration:  image PDFs have a type and size, to which Command Centre will
     transcode incoming images.  All PDFs have their own access level
@@ -1014,9 +1123,10 @@ tags:
     #### Finding a PDF's regular expression
 
     1. `GET /api`
-    2. Follow the link at `features.personalDataFields.personalDataFields.href`, adding a search
-       term to the query to thin out the results.  For example, add `name="PDF name"` to only return
-       the PDF definitions with that name.
+    2. Follow the link at `features.personalDataFields.personalDataFields.href`
+       [↪](#operation--api-personal_data_fields-get), adding a search term to the query to thin out
+       the results.  For example, add `name="PDF name"` to only return the PDF definitions with that
+       name.
 
     #### Setting a cardholder's PDF value
 
@@ -1036,10 +1146,50 @@ tags:
 
     ### Use case:  finding a reception by name
     1. `GET /api`
-    1. Follow the link at `features.receptions.receptions.href` after adding search terms such as
-       `name="Front lobby"`.  A site typically has very few receptions, so if you add `top=1000`
-       you're very unlikely to need to follow a `next` link.
+    1. Follow the link at `features.receptions.receptions.href` [↪](#operation--api-receptions-get)
+       after adding search terms such as `name="Front lobby"`.  A site typically has very few
+       receptions, so if you add `top=1000` you're very unlikely to need to follow a `next` link.
     1. Find the reception you're after and use its href in a visit.
+
+- name: Redactions
+  description: |
+    A _redaction_ is a process that removes one cardholder's personal information from Command
+    Centre.  There are two kinds of redaction:
+
+    An _event_ redaction disconnects a cardholder from events that record an operation that affected
+    that cardholder.  Examples:
+
+    - an operator created the cardholder,
+
+    - an operator changed the value of one of the cardholder's PDFs,
+
+    - an operator changed the cardholder's access group memberships, or
+
+    - the cardholder moved through a door.
+
+    An event recation does not affect a cardholder's history (visible in the enterprise clients).
+
+    A _cardholder information_ redaction is absolute.  It clears all the data held against the item.
+    After being redacted a cardholder has nothing that can identify it:  no names and no PDFs.
+
+    The only way back from a redaction is a database restore.
+
+    Because redactions can take some time, and should not be allowed to run immediately for security
+    reasons, API clients can only schedule a redaction to occur at a future date.  After doing that
+    you can check the progress of redactions, and cancel them.
+
+    Exactly how far in the future a redaction needs to be depends on the site configuration.
+
+    There are two ways to list redactions:  via their own paginated interface, which returns all the
+    redactions in the system that your operator has the permission to view, or in the cardholder
+    record.
+
+    ### Performance
+
+    In early tests with SQL Server and Command Centre on a Core i5, event redactions took roughly
+    one second per 1000 affected events.  Logs and events generated when a redaction completes
+    contain statistics you could use to calculate your own redaction rate, but expect them to vary
+    with the other demands on the database at the time.
 
 - name: Roles
   description: |
@@ -1058,8 +1208,8 @@ tags:
     ### Use case:  searching for a role by name and assigning a relationship
 
     1. `GET /api`
-    1. Follow the link at `features.roles.roles.href` after adding search terms such as
-       `name="supervisor"`.
+    1. Follow the link at `features.roles.roles.href` [↪](#operation--api-roles-get) after adding
+       search terms such as `name="supervisor"`.
     1. Find the href of the role with which you want to link your two cardholders.
     1. Find the href of the cardholder who will perform this role (the supervisor).
     1. Find the href of the cardholder for whom he or she will perform this role (the supervised).
@@ -1074,9 +1224,9 @@ tags:
 
     ### Use case:  finding a visit by name
     1. `GET /api`
-    1. Follow the link at `features.visits.visits.href` after adding search terms such as
-       `name=Ginger Greeter`.  A site typically has many visits, so add `top=1000` for efficiency's
-       sake.
+    1. Follow the link at `features.visits.visits.href` [↪](#operation--api-visits-get) after adding
+       search terms such as `name=Ginger Greeter`.  A site typically has many visits, so add
+       `top=1000` for efficiency's sake.
     1. Find the visit you're after.  You can then modify it by PATCHing its href.
 
     ### Use case:  creating a visit
@@ -1088,8 +1238,8 @@ tags:
        groups.
     1. Pick (or create) at least one cardholder for your visitor or visitors.
     1. Build a [JSON payload](#definition-Visit) containing all that.
-    1. POST to the link at `features.visits.visits.href` (in the payload of the `GET /api` you did
-       for the first step).
+    1. POST to the link at `features.visits.visits.href` [↪](#operation--api-visits-post) (in the
+       payload of the `GET /api` you did for the first step).
 
 securityDefinitions:
   "API key":
@@ -1100,6 +1250,7 @@ security:
 
 ###########################################################################################
 ###########################################################################################
+
 parameters:
   sort:
     name: sort
@@ -1108,7 +1259,7 @@ parameters:
     required: false
     enum: [ id, name, -id, -name]
     description: |
-      Before paginating your results the server can sort them by name or database ID.
+      Changes the sort field between database ID and name.
 
       If you prefix `id` or `name` with a minus sign (ASCII 45), the sort order is reversed.
 
@@ -1119,7 +1270,7 @@ parameters:
          enumerating them.  Sorting by ID does not carry that risk.
       2. Following a `next` link is _dramatically_ quicker when sorting by ID.
 
-      We _strongly_ recommend sorting by ID and, in case you were in doubt, we will do that by
+      We _strongly_ recommend sorting by ID.  In case you were still in doubt, we will do that by
       default in a future version of Command Centre.
 
   top:
@@ -1129,24 +1280,24 @@ parameters:
     type: integer
     minimum: 1
     description: |
-      The maximum number of items to return per page.
+      Limits the results to no more than this many items per page.
 
       Older versions of Command Centre returned 100 items per page.  That is acceptable for GUI
       applications that will only display the first page, but for integrations that intend to
       proceed through the entire database it causes a lot of chatter.
 
-      Later versions will return 1000 items per request.  This is about where a graph of performance
-      versus page size begins to level out.
+      8.70 and later versions will return 1000 items per request.  This is about where a graph of
+      performance versus page size begins to level out.
 
   name:
     name: "name"
     in: query
     type: string
     description: |
-      Only return items with a name that matches this string.  Without surrounding quotes or a
-      percent sign or underscore, it is a substring match; surround the parameter with double quotes
-      `"..."` for an exact match.  Without quotes, a percent sign `%` will match any substring and
-      an underscore will match any single character.
+      Limits the returned items to those with a name that matches this string.  Without surrounding
+      quotes or a percent sign or underscore, it is a substring match; surround the parameter with
+      double quotes `"..."` for an exact match.  Without quotes, a percent sign `%` will match any
+      substring and an underscore will match any single character.
 
       The search is always case-insensitive.  Results are undefined if you do a substring search for
       the empty string (`name=`).  You will receive no items if you search for those with no name
@@ -1162,16 +1313,18 @@ parameters:
     items: { type: string }
     default: ['defaults']
     enum: [href, id, name, description, division, serverDisplayName, type, default, required,
-               unique, sortPriority, accessGroups, regex, regexDescription]
+               unique, sortPriority, accessGroups, regex, regexDescription, defaultAccess,
+               operatorAccess, notificationDefault
+               ]
     description: |
-          Return these fields in the search results.  The values you can list are the same in the
-          search and details pages.  Using it you can return everything on the search page that
-          you would find on the details page.  Separate values with commas.
+      Specifies the fields in the search results.  The values you can list are the same in the
+      search and details pages.  Using it you can return everything on the search page that you
+      would find on the details page.  Separate values with commas.
 
-          Use the special value `defaults` to return the fields you would have received had you not
-          given the parameter at all.  Add more after a comma.
+      Use the special value `defaults` to return the fields you would have received had you not
+      given the parameter at all.  Add more after a comma.
 
-          Treat the string matches as case sensitive.
+      Treat the string matches as case sensitive.
 
   division:
     name: "division"
@@ -1181,11 +1334,11 @@ parameters:
     items:
       type: string
     description: |
-      Only return items in these divisions.
+      Limits the returned items to those that are in these divisions.
 
       That includes all the items in those divisions' child divisions, because Command Centre treats
       items as though they are also in their division's parent, and its parent, and so on up to the
-      root.
+      root division.
 
       List the IDs of the divisions you are interested in separated by commas.  Item IDs are short
       alphanumeric strings, not URLs.
@@ -1200,10 +1353,11 @@ parameters:
     required: false
     type: string
     description: |
-      Only return items with a description that matches this string.  By default it is a
-      substring match; surround it with double quotes `"..."` for an exact match.  Without quotes,
-      adding a percent sign `%` or underscore `_` will anchor the string at both ends.  A `_` will
-      match any single character, and a `%` will match any substring.
+      Limits the returned items to those with a description that matches this string.  By default it
+      is a substring match; surround it with double quotes `"..."` for an exact match.  A `_` will
+      match any single character, and a `%` will match any substring.  With or without quotes,
+      having either of these wildcards in the string will anchor it at both ends as though you had
+      surrounded it with `"`.
 
       The search is always case-insensitive.  Results are undefined if you search for the empty
       string (`description=` or `description=""`).
@@ -1219,14 +1373,29 @@ parameters:
     default: ['defaults']
     enum: [href, name, description, division, serverDisplayName, defaultVisitorType, notes]
     description: |
-          Return these fields.  The values you can list are the same in the search and details
-          pages.  Using it you can return everything on the search page that you would find on the
-          details page, plus the reception's notes.  Separate values with commas.
+      Specifies the fields in the response.  The values you can list are the same in the search and
+      details pages.  Using it you can return everything on the search page that you would find on
+      the details page, plus the reception's notes.  Separate values with commas.
 
-          Use the special value `defaults` to return the fields you would have received had you not
-          given the parameter at all.  Add more after a comma.
+      Use the special value `defaults` to return the fields you would have received had you not
+      given the parameter at all.  Add more after a comma.
 
-          Treat the string matches as case sensitive.
+      Treat the string matches as case sensitive.
+
+  requested_by:
+    name: "requested_by"
+    in: query
+    required: false
+    type: string
+    default: [ none ]
+    description: |
+      Attributes this override to the cardholder with this ID rather than the REST operator.
+      Privilege checks will use the operator as normal, but event monitors and reports will state
+      that the person responsible for the override was the attributed cardholder, not the REST
+      operator.  The REST operator will appear in a special mention in the event's details.
+
+      First available in 8.70.  Versions older than 8.70 will ignore the parameter, leaving the
+      override attributed to the REST operator.
 
   visit_fields:
     name: "fields"
@@ -1239,14 +1408,14 @@ parameters:
     reception, visitorType, host, from, until, location, badgeText, visitorAccessGroups, visitors
     ]
     description: |
-          Return these fields.  The values you can list are the same in the search and details
-          pages.  Using it you can return everything on the search page that you would find on the
-          details page, plus the visit's notes.  Separate values with commas.
+      Specifies the fields in the response.  The values you can list are the same in the search and
+      details pages.  Using it you can return everything on the search page that you would find on
+      the details page, plus the visit's notes.  Separate values with commas.
 
-          Use the special value `defaults` to return the fields you would have received had you not
-          given the parameter at all.  Add more after a comma.
+      Use the special value `defaults` to return the fields you would have received had you not
+      given the parameter at all.  Add more after a comma.
 
-          Treat the string matches as case sensitive.
+      Treat the string matches as case sensitive.
 
 ####################################################################################################
 ####################################################################################################
@@ -1313,6 +1482,10 @@ definitions:
           'authorised' is false by default.  If you want a new cardholder to open doors, be sure to
           set it to true in your POST.
 
+          You need the 'Edit cardholders' privilege to set this true.  In versions prior to 8.80
+          your operator also needed that privilege to set it false, but in 8.80 and later
+          'De-authorise cardholder' is enough on its own.
+
         type: boolean
         example: true
 
@@ -1358,23 +1531,27 @@ definitions:
               An example Personal Data Field value.
 
               All PDFs except images appear at the top level of a cardholder in a field
-              named after the PDF with a leading '@'.  Date PDFs will contain a date-time
-              with the time part set to midnight.
+              named after the PDF with a leading '@'.
+
+              Date PDFs will contain a date-time with the time part set to midnight.
 
               Image PDFs appear as a block named after the PDF with a leading '@'
               containing an href. GETting that href will return the image data with an
               appropriate content-type header.
 
-              Put your PDF values here when creating or modifying a cardholder.  To set an
-              image PDF, Base64-encode the image and send it as a string.  There is one in
+              Put your PDF values here when creating or modifying a cardholder.  Note that to hold a
+              PDF value the cardholder must be a member of an access group that has that PDF
+              attached to it.  In this example, being a member of the special projects group has
+              granted our Mr. Boothroyd the student ID and photo PDFs.
+
+              To set an image PDF, Base64-encode the image and send it as a string.  There is one in
               the [cardholder POST example](#definition-Cardholder-POST-example).
 
-              When you send in date PDFs, Command Centre will set the time to midnight
-              because date PDFs are only accurate to a day.  If you specified a time in
-              your PATCH, the server will first perform a timezone correction then convert
-              it to UTC before truncating the time, which might shift the date back a day
-              if you specified a positive timezone offset.  To be sure that does not
-              happen, put `T00:00:00Z` on the end of your date.
+              Date PDFs are only accurate to a day, so version 8.75 and later will ignore the time
+              and time zone components if you send them.  8.70 and earlier will first perform a
+              timezone correction then convert it to UTC before truncating the time, which might
+              shift the date back a day if you specified a positive timezone offset.  To be sure
+              that does not happen, put `T00:00:00Z` on the end of your date.
 
             example: "8904640"
           disableCipherPad:
@@ -1408,7 +1585,7 @@ definitions:
             type: string
             example: qmaster
             description: |
-              The name that the operator uses when logging in to the interactive clients.
+              The name that the operator uses when logging in to the interactive clients.  Absent if blank.
           operatorPassword:
             type: string
             example: write-only
@@ -1449,13 +1626,21 @@ definitions:
               cardholders) and the value for this cardholder.  The value block of an image PDF will
               contain an href to the image.
 
+              Your visibility of a cardholder's PDF value depends entirely on the PDF's access
+              settings in your operator groups, or if it has none of those, its default privilege.
+              The PDF's division is irrelevant.  So if you were expecting a PDF value here when none
+              arrived, ensure the cardholder has a value for that PDF (because the server does not
+              send nulls) then check the PDF's access settings in all of your operator groups, then
+              the default visibility on the PDF item itself.
+
               When you send this array in a POST or PATCH, Command Centre will take the
               notifications flag from here.  It will use the value from here too, but the '@name'
               field at the root of the cardholder object takes priority.
 
-              To request this block using the 'fields' parameter, use 'personalDataFields'.  Doing
-              so will not only give you the personalDataDefinitions block, but also the values
-              at the root level (with their names preceded by '@'-signs).
+              To request this block using the 'fields' parameter, use 'personalDataFields' (note
+              'fields' not 'definitions').  Doing so will not only give you the
+              personalDataDefinitions block, but also the values at the root level (with their names
+              preceded by '@'-signs).
             items:
               {$ref: '#/definitions/Cardholder PDF'}
             example:
@@ -1504,8 +1689,9 @@ definitions:
             format: url
             readOnly: true
             description:  |
-              This is a link to a [cardholder edit](#definition-Cardholder-edit) page.  Do not send
-              it when creating or editing a cardholder.
+              Reserved for internal use.  It is a link to [another
+              call](#operation--api-cardholders--id--edit-get) that helps interactive administrative
+              clients.  Do not send it when creating or editing a cardholder.
             example:
               href: "https://localhost:8904/cardholders/325/edit"
           updateLocation:
@@ -1595,6 +1781,22 @@ definitions:
 
               Added in 8.40.
 
+          updates:
+            type: object
+            description: |
+              Cardholders include an `updates` block, as other items do, that allows monitoring one
+              cardholder per TCP session in a long poll.  However the [Cardholder
+              Changes](#tag-Cardholder-changes) methods are a far more efficient way of monitoring
+              your cardholders.
+          redactions:
+            type: array
+            description: |
+              All the cardholder's scheduled redactions.  Because this is relatively expensive to
+              compute, this field does not appear by default.  You must ask for it.
+
+              Added in 8.80.
+            items: {$ref: '#/definitions/Cardholder redaction'}
+
       - $ref: "#/definitions/Cardholder summary"
 
   Cardholder POST example:
@@ -1636,7 +1838,8 @@ definitions:
       "@email":
         description: |
           An example PDF value.  In this example, access group 352 must include a PDF
-          called 'email' otherwise this will fail.
+          called 'email' otherwise this will appear to have no effect.
+
         type: string
         example: "user@sample.com"
       "@headshot":
@@ -1780,6 +1983,332 @@ definitions:
               you can also use an href from the [items controller](events.html#tag-Items) if you do
               not have a RESTStatus or (in 8.60) RESTOverrides licence.
 
+  Cardholder PATCH example:
+    description: |
+      Send one of these in a PATCH to `/api/cardholders/{id}` to modify the cardholder at that URL,
+      or to add and modify cards, competencies, groups, and relationships.
+
+      All the cardholder fields you can supply are described in the [cardholder
+      detail](#definition-Cardholder-detail).
+
+      This example:
+
+        - sets 'authorised' true,
+        - sets a PDF holding an employee ID,
+        - changes the notification flags on two PDFs,
+        - adds two new credentials, one card and one mobile,
+        - changes the issue level with `Stolen` as the reissue reason and clears the until date on another credential,
+        - deletes a third credential with `Lost` as the remove reason,
+        - adds two access group memberships, one unending and one with an until date,
+        - clears the until date on another access group membership,
+        - removes a fourth access group membership,
+        - adds a competency, inactive, with a future enablement date,
+        - activates a competency that the cardholder already had,
+        - adds one relationship,
+        - changes the cardholder on another,
+        - adds one locker assignment with a from date,
+        - sets the until date on another locker assignment,
+        - removes a third locker assignment,
+        - adds two operator group memberships,
+        - removes a third operator group membership,
+        - adds an elevator group with a default floor,
+        - modifies another elevator group, turning the 'code blue' feature on and the VIP feature off, and
+        - removes a third elevator group.
+
+      This is also the method you use for changing a cardholder's name, description, notes, user
+      code, etc.
+
+      In addition to those fields, this PATCH format accepts five arrays:  'cards',
+      'accessGroups', 'competencies', 'relationships', and (in 8.50) 'operatorGroups'.
+
+    properties:
+      authorised:
+        type: boolean
+        example: true
+        description: |
+          You can modify [all the fields](#definition-Cardholder-detail) on a cardholder, provided
+          you have the necessary privileges,
+      "@employeeId":
+        type: string
+        example: THX1139
+        description: |
+          Replace PDF values as though they were flat fields on a cardholder.  Prefix the name of
+          the PDF with `@`, and Base64-encode images.  Send 'null' if you want to delete a PDF value.
+
+          Remember that a cardholder's record will not return a PDF if he or she is not a member of
+          the access group that grants that PDF.  In this example, one or both of access groups 352
+          and 124 are attached to 'employeeId'.
+      personalDataDefinitions:
+        description: |
+          This is how you set and unset the notifications flags on PDFs.  Presumably this cardholder
+          wants to receive notifications at the email address stored in the 'email' PDF rather than
+          by SMS.
+        type: array
+        items: {$ref: '#/definitions/Cardholder PDF'}
+        example:
+          - "@email": {notifications: true}
+          - "@cellphone": {notifications: false}
+
+      cards:
+        type: object
+        description: |
+          This object can contain three arrays, named 'add', 'update', and 'remove'.  Every element
+          you put in those arrays should be in the [card schema](#definition-Cardholder-card).
+
+          Each element of the 'add' array will need a 'type' member, at the very least.  Every card
+          field makes sense here except 'href'.  Only existing cards have hrefs.  This example adds
+          two cards:  one has nothing more than the type, so it will receive blank 'from' and
+          'until' dates and a computed number and issue level.  The other is a mobile credential (it
+          has an 'invitation' block) with a custom initial state.
+
+          Each element of the 'update' array should be a card to modify.  It will need the href of
+          that card, plus the fields you want to change.  Remember you cannot change a card's type.
+          The example changes the issue level and resets the 'until' date.
+
+          The only field that makes sense in an element of the 'remove' array is 'href' and 'status'.
+
+          Do not put the same href in both the 'update' and 'remove' arrays.
+
+          In version 8.90 and later you can specify a card state in the `value` field inside the
+          `status` block when removing a card or changing its issue level.  It becomes the final
+          state of the card if you remove it or the final state of the card with the previous issue
+          level if you re-issue it, so it must be one of the valid states for the card type.  The
+          Gallagher clients and the resulting event call this state the 'reason' for the re-issue or
+          removal.  By default it will be the same as the card's current state.
+
+        example:
+          add:
+            - type:
+                href: "https://localhost:8904/api/card_types/354"
+            - type:
+                href: "https://localhost:8904/api/card_types/600"
+              number: "Jock's iPhone 8"
+              status: { value: "Pending sign-off"}
+              invitation: { email: "jock@example.com" }
+          update:
+            - href: "https://localhost:8904/api/cardholders/325/cards/97b6a24ard6d4500a9d"
+              issueLevel: 2
+              until: ""
+              status: { value: "Stolen" }
+          remove:
+            - href: "https://localhost:8904/api/cardholders/325/cards/77e8affe7c7e4b56"
+              status: { value: "Lost" }
+
+      accessGroups:
+        type: object
+        description: |
+          Like the 'cards' object, this can contain three arrays named 'add', 'update', and
+          'remove'.  Every element you send in those arrays should be in the [access group
+          schema](#definition-Cardholder-access-group).
+
+          This operation does not modify access groups in Command Centre; it works on a cardholder's
+          memberships to those groups.
+
+          Each element of the 'add' array will need an 'accessGroup' member containing an href
+          identifying the group to which you wish to add the cardholder.  The other fields are
+          optional.
+
+          Each element of the 'update' array will need an href identifying the membership to update,
+          and one or both of the 'from' and 'until' date-times containing new values (you cannot
+          change the group--just the dates).  The example removes the until date, effectively making
+          the group membership unending.
+
+          In version 7.90.883 or earlier, 'from' and 'until' should be in UTC with a
+          trailing 'Z'.  Releases after 883 understand different timezones here.
+
+          Note that updating a cardholder's group membership will change its href, so do not cache
+          it.
+
+          The only field that makes sense in an element of the 'remove' array is the href.
+
+          Do not put the same href in both the 'update' and 'remove' arrays.
+
+        example:
+          add:
+            - accessGroup:
+                href: "https://localhost:8904/api/access_groups/352"
+            - accessGroup:
+                href: "https://localhost:8904/api/access_groups/124"
+              until: "2019-12-31"
+          update:
+            - href: "https://localhost:8904/api/cardholders/325/access_groups/10ad21"
+              until: ""
+          remove:
+            - href: "https://localhost:8904/api/cardholders/325/access_groups/10ed27"
+
+      competencies:
+        type: object
+        description: |
+          Like the cards and accessGroups objects, this can contain three arrays named 'add',
+          'update', and 'remove'.  Every element should be in the [cardholder competency
+          schema](#definition-Cardholder-competency).
+
+          This operation does not modify Command Centre's competencies:  it works on a cardholder's
+          holdings of those competencies.
+
+          Each element of the 'add' array will need a 'competency' block containing an href member
+          identifying the competency you wish to grant the cardholder.  All other fields are optional.
+          Note that attempting to give a cardholder a competency he or she already has
+          will result in an error or an alarm depending on the server version.
+
+          Each element of the 'update' array will need an href identifying the
+          cardholder/competency link to update, and one or more of the 'expiry', 'enabled',
+          'enablement', 'comment', 'limitedCredit', and 'credit' fields.
+
+          The only field that makes sense in an element of the 'remove' array is the href
+          of the link between the cardholder and the competency.
+
+          Do not put the same href in both the 'update' and 'remove' arrays.
+
+          In this example we are giving the cardholder a disabled competency which will enable
+          in 2021, and activating another competency.
+
+        example:
+          add:
+            - competency:
+                href: "https://localhost:8904/api/competencies/2354"
+              enabled: false
+              enablement: "2021-01-01T08:00+13"
+          update:
+            - href: "https://localhost:8904/api/cardholders/325/competencies/2dc3"
+              enabled: true
+
+      relationships:
+        type: object
+        description: |
+          It should be no surprise that this can contain three arrays named 'add', 'update', and
+          'remove', and that every element should be in the [relationship
+          schema](#definition-Cardholder-relationship).
+
+          This operation does not modify Command Centre's roles:  it works on the relationships
+          between two cardholders.
+
+          Each element of the 'add' array will need a 'role' member containing an href identifying
+          the type of relationship you wish to establish, and a 'cardholder' member containing an
+          href identifying the other party (the one who will perform the role for the cardholder at
+          the URL you are PATCHing).  There are no optional fields.
+
+          Each element of the 'update' array will need an href identifying the relationship to
+          update, and one or both of the 'role' and 'cardholder' blocks containing the updated
+          values.  The example leaves the role but changes the cardholder - a new supervisor,
+          presumably.
+
+          The only field that makes sense in an element of the 'remove' array is the href.
+
+          Do not put the same href in both the 'update' and 'remove' arrays.
+
+        example:
+          add:
+            - role:
+                href: "https://localhost:8904/api/roles/5396"
+              cardholder:
+                href: "https://localhost:8904/api/cardholders/5398"
+          update:
+            - href: "https://localhost:8904/api/cardholders/325/roles/1799lah1170"
+              cardholder:
+                href: "https://localhost:8904/api/cardholders/10135"
+
+      lockers:
+        type: object
+        description: |
+          With you well in the habit by now, each element of your three arrays should be in the
+          [cardholder locker schema](#definition-Cardholder-locker).  They will allocate lockers to
+          cardholders, de-allocate them, and adjust validity periods.
+
+          Each member of the 'add' array will need a 'locker' member containing an href identifying
+          the locker to allocate.  The cardholder you will allocate it to is identified by the
+          request URL, remember.
+
+          Each member of the 'update' array will need an href identifying the allocation to update,
+          and one or both of the 'from' and 'until' date-times.
+
+          The validity period is all you can change about a locker allocation.  If you want to
+          change the locker, delete the old one and add a new.  You can do that in the same PATCH,
+          with one element in each of the 'add' and 'remove' arrays.
+
+          This example allocates one locker starting in January 2019, sets the end-date of an
+          existing allocation to the end of February 2020, and removes another entirely.
+
+        example:
+          add:
+            - locker:
+                href: "https://localhost:8904/api/lockers/1200"
+                from: "2019-01-01"
+          update:
+            - href: "https://localhost:8904/api/cardholders/325/lockers/wxyz1234"
+              until: "2020-02-29"
+          remove:
+            - href: "https://localhost:8904/api/cardholders/325/lockers/abcd4321"
+
+      operatorGroups:
+        type: object
+        description: |
+          This can contain two arrays named 'add' and 'remove'.  Every element you send in those
+          arrays should be in the [cardholder operator group
+          schema](#definition-Cardholder-operator-group).
+
+          Each element of the 'add' array will need an 'operatorGroup' member containing an href
+          identifying the operator group to which you wish to add the cardholder.
+
+          The only field that makes sense in an element of the 'remove' array is the href.  Make
+          sure it is the href of the membership, not of the operator group.
+
+          There is nothing about an operator group membership that you can change so there is no
+          point to an 'update' array.  Operator group memberships are, or are not - there is no
+          update.
+
+          Supported in 8.50 and later.
+
+        example:
+          add:
+            - operatorGroup:
+                href: "https://localhost:8904/api/access_groups/532"
+            - operatorGroup:
+                href: "https://localhost:8904/api/access_groups/535"
+          remove:
+            - href: "https://localhost:8904/api/cardholders/325/operator_groups/EBDRSD"
+
+      elevatorGroups:
+        type: object
+        description: |
+          This can contain three arrays named 'add', 'update', and
+          'remove', each containing an element in the [cardholder elevator group
+          schema](#definition-Cardholder-elevator-group).
+
+          The 'elevatorGroup' block only makes sense in the 'add' array.  The 'update' array is for
+          changing the cardholder's default floor and passenger types on an existing elevator group
+          assignment.
+
+          The server will ignore all fields in the elevatorGroup and accessZone objects except 'href'
+          if you place them in the body of your PATCH.
+
+          Remove the default floor in an update by supplying an accessZone block with the href set
+          to null or "".
+
+          Change a passenger type in an update by supplying the new value. The passenger type will
+          be unchanged otherwise.
+
+          As with cards and access group memberships etc., the server ignores root-level hrefs in
+          the elements of an 'add' array, requires them in the 'update' array (since they indicate
+          the entries to work on), and ignores everything but them in the 'remove' array.
+
+          The example shows our cardholder receiving a default floor for one elevator group and
+          updating the Code Blue and VIP passenger types for another elevator group.
+
+          Added in 8.50.
+        example:
+          add:
+            - elevatorGroup:
+                href:  "https://localhost:8904/api/elevator_groups/635"
+              accessZone:
+                href:  "https://localhost:8904/api/access_zones/637"
+          update:
+            - href: "https://localhost:8904/api/cardholders/325/elevator_groups/1268613268"
+              enableCodeBlueFeatures: true
+              enableVipFeatures: false
+          remove:
+            - href: "https://localhost:8904/api/cardholders/325/elevator_groups/3498734"
+
   Cardholder PDF:
     description: |
       A personal data definition and its value for a cardholder.  Each definition is an object
@@ -1787,13 +2316,14 @@ definitions:
       value and notifications flag for the containing cardholder and an object containing some of
       the PDF definition's basic fields.
 
-      This is returned as part of a [cardholder's details](#definition-Cardholder-detail) and you
-      can send it in a [POST](#definition-Cardholder-POST-example) or a
-      [PATCH](#definition-Cardholder-PATCH-example).
+      This is returned as part of a [cardholder](#definition-Cardholder-detail), and you can send it
+      in a [POST](#definition-Cardholder-POST-example) or a
+      [PATCH](#definition-Cardholder-PATCH-example) to set the PDF's value and notification flag for
+      a cardholder.  The server will ignore the `definition` block if you send it back.  It uses the
+      name of the block (minus its leading `@`) to find the PDF to change.
 
-      To change the value of a PDF, you can use this structure but it may be simpler for you to
-      PATCH the cardholder with a property in the root of the payload named after the PDF with a
-      leading '@'.
+      While you can use this structure to change the value of a cardholder's PDF, it may be simpler
+      to put a property in the root of the payload named after the PDF with a leading '@'.
 
     properties:
       href:
@@ -1801,8 +2331,12 @@ definitions:
         format: url
         readonly: true
         description: |
-          GET this link to receive this cardholder's value for this PDF.  It is read-only:  do not
-          send it in a PATCH or POST.
+          GET this link to receive this cardholder's value for this PDF.  If it is an image you will
+          receive the raw image data with an appropriate content-type.  A browser will render it
+          correctly.  If the PDF is not an image the content type will be text/plain, encoded (like
+          everything else in this API) as UTF-8.
+
+          It is read-only:  do not send it in a PATCH or POST.
 
       definition:
         type: object
@@ -1837,8 +2371,13 @@ definitions:
           value, but for image PDFs it will be an object containing a copy of the `href` field
           above.
 
-          In a POST or PATCH send text and numeric PDF data raw, and image data Base64-encoded
-          into a string.
+          In versions up to and including 8.60, if a cardholder did not have an image PDF captured
+          (in other words they were a member of an access group that included an image PDF, but they
+          did not have a value for it) the API returned the string 'Not captured' in the `value`
+          field.  Versions 8.70 and later will not return the `value` field at all if there is no image.
+
+          In a POST or PATCH send text PDFs (including dates) as strings, numeric PDFs as numbers or
+          strings that parse to numbers, and image data Base64-encoded into a string.
 
       notifications:
         type: boolean
@@ -1907,6 +2446,10 @@ definitions:
           The serial number of a physical access card, as a hex string without a leading '0x'.  This
           may not be not present on older cards.
 
+          The example in this example shows the byte ordering you can expect in a GET and should use
+          in a PATCH or POST.  The card serials (UIDs) of NXP MIFARE cards start with 04 and end
+          with 80.
+
           This field was read-only until 7.90.  It is read-write in 8.00 and later.
 
         type: string
@@ -1938,8 +2481,9 @@ definitions:
           sufficient.  See the online help for the Command Centre client if you wish to create your
           own.
 
-          The second field, `type`, comes from a fixed enumeration, and so is better suited for
-          integrations.  Command Centre derives it from the card's state and activation dates.
+          The second field, `type`, comes from a fixed enumeration, and so is better suited than
+          `value` for integrations.  Command Centre derives it from the card's state and activation
+          dates.
 
         type: object
         properties:
@@ -1999,14 +2543,30 @@ definitions:
         description: |
           Command Centre will only return this object for a mobile credential, and you should send
           it only when creating one.  In the interests of security you cannot modify the invitation
-          block of an existing credential.  Someone's thumb might be poised to accept it, after all.
+          block of an existing credential.  Someone's thumb might be on its way to accept it, after all.
           If there was something wrong with it you should delete it and start afresh.
 
-          If you specify either `mobile` or `mail` you must also supply the other so that Command
-          Centre can send both an invitation and a confirmation SMS.  It is an error to only specify
-          one.  If you give neither, Command Centre will not send an invitation to the cardholder,
-          and it will be up to another application to complete the creation of this credential using
-          the Mobile Connect SDK.
+          Whether you should send `mobile` or `email` when creating a mobile credential depends on
+          whether you are using the Gallagher mobile apps or your own.
+
+          If you specify either `mobile` or `mail` to early-version servers you must also supply the
+          other so that Command Centre can send both an email invitation and a confirmation SMS.  It
+          is an error to only specify one on those servers.
+
+          Later versions of Command Centre made the SMS verification optional to better support
+          installations that use the Gallagher apps but dependence on cellular connectivity is
+          undesirable.  You do not need to send a mobile number when creating such a credential.
+
+          If you do not give an email address Command Centre cannot send an invitation to the
+          cardholder.  It will be up to another application to complete the creation of this
+          credential using the Mobile Connect SDK.
+
+          You should not send a mobile number when creating a credential for use by third-party apps
+          that use the Mobile Connect SDK.  SMS is not supported there.
+
+          For more detail on using the Mobile Connect SDK, including more complete coverage of how
+          an email address and mobile number are used in the provisioning process, see its
+          documentation at [gallaghersecurity.github.io](https://gallaghersecurity.github.io).
 
         properties:
           email:
@@ -2031,7 +2591,8 @@ definitions:
               zones in modes that require a PIN and readers that always require a second factor will
               not grant access to the cardholder.
 
-              `singleFactorOnly` will only be in the result of a GET if it is true.
+              `singleFactorOnly` will only be in the result of a GET if it is true.  If it is false,
+              the field will be missing.
 
           status:
             type: string
@@ -2103,7 +2664,7 @@ definitions:
     description: |
       This is an example of what you would send to create a new mobile credential.  The [card
       detail](#definition-Cardholder-card) contains everything in a card, and is a bit daunting, so
-      this example shows only the fields you are mostly likely to need.
+      this example shows only the fields you need for a mobile credential.
 
       You can submit it as part of a larger document in a [POST](#definition-Cardholder-detail) to
       create a cardholder with cards, or as part of a [PATCH](#definition-Cardholder-PATCH-example) to
@@ -2113,25 +2674,28 @@ definitions:
       number:
         example: "Nick's mobile"
         type: string
-        description: "This does not need to be numeric for mobile credentials."
+        description: "The so-called card 'number' on a mobile credential does not need to be numeric."
       status:
         description: |
-          Optional.  Provide a field "value" set to one of the valid starting states for the mobile
+          Optional.  Provide a field `value` set to one of the valid starting states for the mobile
           credential.  If you omit it, the credential will start in the default state.
         example: {value: "active"}
       type:
         description: |
           This is the only compulsory field in the POST body.  It must contain an href to the card
           type of the new mobile credential.
-        example: {"https://localhost:8904/api/card_types/654"}
+        example: {"href": "https://localhost:8904/api/card_types/654"}
       from: {type: string, format: date-time, example: "2017-01-01T00:00:00Z"}
       until: {type: string, format: date-time, example: "2018-01-01T00:00:00Z"}
       invitation:
         description: |
-          If you specify 'mobile' when creating a new mobile credential, you must also supply 'email'.
-          If you give neither, Command Centre will not send an invitation to the cardholder.
+          This is a block containing fields that describe how Command Centre should set about
+          registring the mobile device.
 
-          'singleFactorOnly' defaults to false, which is the recommended setting.  See the [card
+          If you specify `mobile` you must also supply `email`.  If you give neither, Command Centre
+          will not send an invitation to the cardholder.
+
+          `singleFactorOnly` defaults to false, which is the recommended setting.  See the [card
           detail](#definition-Cardholder-card) for more.
         properties:
           email: {type: string, example: "nick@example.com"}
@@ -2413,6 +2977,10 @@ definitions:
       you need to do that, delete the cardholder's existing competency and give them a new one.  You
       can do that in one PATCH.
 
+      A cardholder can have only one link to a given competency.  Attempting to give a cardholder a
+      competency a second time will either fail or raise a stateful alarm depending on your version
+      of Command Centre.
+
     properties:
       href:
         type: string
@@ -2536,343 +3104,6 @@ definitions:
           name: "Miles Messervy"
           firstName: "Miles"
           lastName: "Messervy"
-
-  Cardholder PATCH example:
-    description: |
-      Send one of these in a PATCH to `/api/cardholders/{id}` to modify the cardholder at that URL,
-      or to add and modify cards, competencies, groups, and relationships.
-
-      All the cardholder fields you can supply are described in the [cardholder
-      detail](#definition-Cardholder-detail).
-
-      This example:
-
-        - sets 'authorised' true,
-        - sets a PDF holding an employee ID,
-        - changes the notification flags on two PDFs,
-        - adds two new credentials, one card and one mobile,
-        - changes the issue level and clears the until date on another credential,
-        - deletes a third credential,
-        - adds two access group memberships, one unending and one with an until date,
-        - adds one operator group membership,
-        - clears the until date on another access group membership,
-        - removes a third access group membership,
-        - adds a competency, inactive, with a future enablement date,
-        - makes another competency active,
-        - adds one relationship,
-        - changes the cardholder on another,
-        - adds one locker assignment with a from date,
-        - sets the until date on another locker assignment, and
-        - removes a third locker assignment.
-
-      This is also the method you use for changing a cardholder's name, description, notes, user
-      code, etc.
-
-      In addition to those fields, this PATCH format accepts five arrays:  'cards',
-      'accessGroups', 'competencies', 'relationships', and (in 8.50) 'operatorGroups'.
-
-    properties:
-      authorised:
-        type: boolean
-        example: true
-        description: |
-          You can modify [all the fields](#definition-Cardholder-detail) on a cardholder, provided
-          you have the necessary privileges,
-      "@employeeId":
-        type: string
-        example: THX1139
-        description: |
-          Replace PDF values as though they were flat fields on a cardholder.  Prefix the name of
-          the PDF with `@`, and Base64-encode images.  Send 'null' if you want to delete a PDF value.
-      personalDataDefinitions:
-        description: |
-          This is how you set and unset the notifications flags on PDFs.  Presumably this cardholder
-          wants to receive notifications at the email address stored in the 'email' PDF rather than
-          by SMS.
-        type: array
-        items: {$ref: '#/definitions/Cardholder PDF'}
-        example:
-          - "@email": {notifications: true}
-          - "@cellphone": {notifications: false}
-
-      cards:
-        type: object
-        description: |
-          This object can contain three arrays, named 'add', 'update', and 'remove'.  Every element
-          you put in those arrays should be in the [card schema](#definition-Cardholder-card).
-
-          Each element of the 'add' array will need a 'type' member, at the very least.  Every card
-          field makes sense here except 'href'.  Only existing cards have hrefs.  This example adds
-          two cards:  one has nothing more than the type, so it will receive blank 'from' and
-          'until' dates and a computed number and issue level.  The other is a mobile credential (it
-          has an 'invitation' block) with a custom initial state.
-
-          Each element of the 'update' array should be a card to modify.  It will need the href of
-          that card, plus the fields you want to change.  Remember you cannot change a card's type.
-          The example changes the issue level and resets the 'until' date.
-
-          The only field that makes sense in an element of the 'remove' array is 'href'.
-
-          Do not put the same href in both the 'update' and 'remove' arrays.
-
-        example:
-          add:
-            - type:
-                href: "https://localhost:8904/api/card_types/354"
-            - type:
-                href: "https://localhost:8904/api/card_types/600"
-              number: "Jock's iPhone 8"
-              status: { value: "Pending sign-off"}
-              invitation: { email: "jock@example.com" }
-          update:
-            - href: "https://localhost:8904/api/cardholders/325/cards/97b6a24ard6d4500a9d"
-              issueLevel: 2
-              until: ""
-          remove:
-            - href: "https://localhost:8904/api/cardholders/325/cards/77e8affe7c7e4b56"
-
-      accessGroups:
-        type: object
-        description: |
-          Like the 'cards' object, this can contain three arrays named 'add', 'update', and
-          'remove'.  Every element you send in those arrays should be in the [access group
-          schema](#definition-Cardholder-access-group).
-
-          This operation does not modify access groups in Command Centre; it works on a cardholder's
-          memberships to those groups.
-
-          Each element of the 'add' array will need an 'accessGroup' member containing an href
-          identifying the group to which you wish to add the cardholder.  The other fields are
-          optional.
-
-          Each element of the 'update' array will need an href identifying the membership to update,
-          and one or both of the 'from' and 'until' date-times containing new values (you cannot
-          change the group--just the dates).  The example removes the until date, effectively making
-          the group membership unending.
-
-          In version 7.90.883 or earlier, 'from' and 'until' should be in UTC with a
-          trailing 'Z'.  Releases after 883 understand different timezones here.
-
-          Note that updating a cardholder's group membership will change its href, so do not cache
-          it.
-
-          The only field that makes sense in an element of the 'remove' array is the href.
-
-          Do not put the same href in both the 'update' and 'remove' arrays.
-
-        example:
-          add:
-            - accessGroup:
-                href: "https://localhost:8904/api/access_groups/352"
-            - accessGroup:
-                href: "https://localhost:8904/api/access_groups/124"
-              until: "2019-12-31"
-          update:
-            - href: "https://localhost:8904/api/cardholders/325/access_groups/10ad21"
-              until: ""
-          remove:
-            - href: "https://localhost:8904/api/cardholders/325/access_groups/10ed27"
-
-      competencies:
-        type: object
-        description: |
-          Like the cards and accessGroups objects, this can contain three arrays named 'add',
-          'update', and 'remove'.  Every element should be in the [competency
-          schema](#definition-Cardholder-competency).
-
-          This operation does not modify Command Centre's competencies:  it works on a cardholder's
-          holdings of those competencies.
-
-          Each element of the 'add' array will need a 'competency' block containing an href member
-          identifying the competency you wish to grant the cardholder.  All other fields are optional.
-
-          Each element of the 'update' array will need an href identifying the
-          cardholder's competency to update, and one or more of the 'expiry', 'enabled',
-          'enablement', 'comment', 'limitedCredit', and 'credit' fields.
-
-          The only field that makes sense in an element of the 'remove' array is the href.
-
-          Do not put the same href in both the 'update' and 'remove' arrays.
-
-          In this example we are giving the cardholder a disabled competency which will enable
-          in 2021, and activating another competency.
-
-        example:
-          add:
-            - competency:
-                href: "https://localhost:8904/api/competencies/2354"
-              enabled: false
-              enablement: "2021-01-01T08:00+13"
-          update:
-            - href: "https://localhost:8904/api/cardholders/325/competencies/2dc3"
-              status:
-                type: "active"
-
-      relationships:
-        type: object
-        description: |
-          It should be no surprise that this can contain three arrays named 'add', 'update', and
-          'remove', and that every element should be in the [relationship
-          schema](#definition-Cardholder-relationship).
-
-          This operation does not modify Command Centre's roles:  it works on the relationships
-          between two cardholders.
-
-          Each element of the 'add' array will need a 'role' member containing an href identifying
-          the type of relationship you wish to establish, and a 'cardholder' member containing an
-          href identifying the other party (the one who will perform the role for the cardholder at
-          the URL you are PATCHing).  There are no optional fields.
-
-          Each element of the 'update' array will need an href identifying the relationship to
-          update, and one or both of the 'role' and 'cardholder' blocks containing the updated
-          values.  The example leaves the role but changes the cardholder - a new supervisor,
-          presumably.
-
-          The only field that makes sense in an element of the 'remove' array is the href.
-
-          Do not put the same href in both the 'update' and 'remove' arrays.
-
-        example:
-          add:
-            - role:
-                href: "https://localhost:8904/api/roles/5396"
-              cardholder:
-                href: "https://localhost:8904/api/cardholders/5398"
-          update:
-            - href: "https://localhost:8904/api/cardholders/325/roles/1799lah1170"
-              cardholder:
-                href: "https://localhost:8904/api/cardholders/10135"
-
-      lockers:
-        type: object
-        description: |
-          With you well in the habit by now, each element of your three arrays should be in the
-          [locker schema](#definition-Cardholder-locker).  They will allocate lockers to
-          cardholders, de-allocate them, and adjust validity periods.
-
-          Each member of the 'add' array will need a 'locker' member containing an href identifying
-          the locker to allocate.  The cardholder you will allocate it to is identified by the
-          request URL, remember.
-
-          Each member of the 'update' array will need an href identifying the allocation to update,
-          and one or both of the 'from' and 'until' date-times.
-
-          The validity period is all you can change about a locker allocation.  If you want to
-          change the locker, delete the old one and add a new.  You can do that in the same PATCH,
-          with one element in each of the 'add' and 'remove' arrays.
-
-          This example allocates one locker starting in January 2019, sets the end-date of an
-          existing allocation to the end of February 2020, and removes another entirely.
-
-        example:
-          add:
-            - locker:
-                href: "https://localhost:8904/api/lockers/1200"
-                from: "2019-01-01"
-          update:
-            - href: "https://localhost:8904/api/cardholders/325/lockers/wxyz1234"
-              until: "2020-02-29"
-          remove:
-            - href: "https://localhost:8904/api/cardholders/325/lockers/abcd4321"
-
-      operatorGroups:
-        type: object
-        description: |
-          This can contain two arrays named 'add' and 'remove'.  Every element you send in those
-          arrays should be in the [operator group schema](#definition-Cardholder-operator-group).
-
-          Each element of the 'add' array will need an 'operatorGroup' member containing an href
-          identifying the operator group to which you wish to add the cardholder.
-
-          The only field that makes sense in an element of the 'remove' array is the href.  Make
-          sure it is the href of the membership, not of the operator group.
-
-          There is nothing about an operator group membership that you can change so there is no
-          point to an 'update' array.  Operator group memberships are, or are not - there is no
-          update.
-
-          Supported in 8.50 and later.
-
-        example:
-          add:
-            - operatorGroup:
-                href: "https://localhost:8904/api/access_groups/532"
-            - operatorGroup:
-                href: "https://localhost:8904/api/access_groups/535"
-          remove:
-            - href: "https://localhost:8904/api/cardholders/325/operator_groups/EBDRSD"
-
-      elevatorGroups:
-        type: object
-        description: |
-          This can contain three arrays named 'add', 'update', and
-          'remove', each containing an element in the [elevator group
-          schema](#definition-Cardholder-elevator-group).
-
-          The 'elevatorGroup' block only makes sense in the 'add' array.  The 'update' array is for
-          changing the cardholder's default floor and passenger types on an existing elevator group
-          assignment.
-
-          The server will ignore all fields in the elevatorGroup and accessZone objects except 'href'
-          if you place them in the body of your PATCH.
-
-          Remove the default floor in an update by supplying an accessZone block with the href set
-          to null or "".
-
-          Change a passenger type in an update by supplying the new value. The passenger type will
-          be unchanged otherwise.
-
-          As with cards and access group memberships etc., the server ignores root-level hrefs in
-          the elements of an 'add' array, requires them in the 'update' array (since they indicate
-          the entries to work on), and ignores everything but them in the 'remove' array.
-
-          The example shows our cardholder receiving a default floor for one elevator group and
-          updating the Code Blue and VIP passenger types for another elevator group.
-
-          Added in 8.50.
-        example:
-          add:
-            - elevatorGroup:
-                href:  "https://localhost:8904/api/elevator_groups/635"
-              accessZone:
-                href:  "https://localhost:8904/api/access_zones/637"
-          update:
-            - href: "https://localhost:8904/api/cardholders/325/elevator_groups/1268613268"
-              enableCodeBlueFeatures: true
-              enableVipFeatures: false
-          remove:
-            - href: "https://localhost:8904/api/cardholders/325/elevator_groups/3498734"
-
-  Cardholder edit:
-    description: |
-      Returned from the `edit` href in the cardholder detail object.  It gives the fields the
-      operator can edit, based on privileges.
-
-      If you only see 'authorised: true' then your operator has 'De-authorise Cardholder' (which
-      lets you clear the 'authorised' flag) but not 'edit cardholder'.
-
-      If you see 'accessGroups: true' then your operator has 'Modify Access Control'.
-
-      And so on.
-
-    properties:
-
-      editable:
-        type: object
-        example:
-          firstName: true
-          lastName: true
-          shortName: true
-          description: true
-          authorised: true
-          division: true
-          accessGroups: true
-          competencies: true
-          notes: true
-          useExtendedAccessTime: true
-          relationships: true
-          lockers: true
-          notifications: true
 
   Cardholder locker:
     description: |
@@ -3029,6 +3260,16 @@ definitions:
         description: |
           The link to the next page of changes.  This will always be present, because (unlike items)
           changes never run out.
+
+          Because the `next` link is a pointer to the head of a queue of changes, and new changes
+          are being added to that queue which will not suit your filter or privileges, it will
+          change even when there are no results.
+
+          Therefore you should always use this link for your next query.  Do not be tempted to
+          re-use a URL after `results` comes back empty, thinking you merely need to ask the same
+          question again.  Doing that will cause the server unnecessary work, skipping over changes
+          that did not pass your filter or privilege checks on the previous call.
+
         properties:
           href: { type: string, format: url }
         example:
@@ -3101,8 +3342,9 @@ definitions:
           detail](#definition-Cardholder-detail).  If a value is blank, it means that the value was
           null before the change or the server no longer has it.
 
-          Unless you are particularly interested in historical data, you may like to omit this block
-          using something like `fields=time,type,item,operator`.
+          Because this requires extra effort from the server, you may like to omit this block using
+          something like `fields=time,type,item,operator` unless you are particularly interested in
+          historical data.
 
         example:
           firstName: "Craig"
@@ -3115,7 +3357,9 @@ definitions:
           server has them.
 
           Generally, this block is less useful than the current state of the cardholder, described
-          next.
+          next.  It also requires extra effort from the server, so you may like to omit this block
+          using `fields`.
+
         example: {
           firstName: "Gavin",
           competencies: [
@@ -3148,8 +3392,8 @@ definitions:
         }
       cardholder:
         description: |
-          A block containing the current fields on the cardholder (provided the cardholder has not
-          been deleted).  This is in the same format as a [cardholder
+          A block containing the current fields on the cardholder, provided the cardholder has not
+          been deleted.  This is in the same format as a [cardholder
           detail](#definition-Cardholder-detail).
 
           Because building this requires more work from the server it is not in the default result
@@ -3172,6 +3416,66 @@ definitions:
             }
           ]
         }
+
+######################################################################
+
+  Cardholder redaction:
+    description: |
+      These appear in an array in a cardholder object.  Each describes a redaction scheduled for the
+      cardholder.
+
+      A cardholder can have multiple event redactions pending, because they can operate on events
+      from different periods, but since a cardholder redaction removes the cardholder item there
+      can be only one.
+
+    properties:
+      href:
+        type: string
+        format: url
+        description: |
+          DELETE this URL to cancel this redaction.
+
+          DELETE is the only verb you can use on this URL.  GET will always return a 404.
+
+        example: "https://localhost:8904/api/cardholders/redactions/625"
+      type:
+        type: string 
+        enum: [ normalEvents, cardholder ]
+        description: |
+          Whether this redaction is for cardholder events or cardholder information.
+        example: "normalEvents"
+      when:
+        description: |
+          When redaction is meant to happen.  This should be in the future.  If it is in the past,
+          the service returns 400-Bad Request Invalid Start Time.
+
+          Optional.  If it is absent, it means to do it asap.
+
+        type: string
+        format: date-time
+        example: "2023-01-01T00:00:00Z"
+      before:
+        description: |
+          For event redactions, do not redact any events after this time.  No effect on cardholder
+          information redactions.
+
+          Optional.
+
+        type: string
+        format: date-time
+        example: "2022-01-01T00:00:00Z"
+      status:
+        type: string
+        enum: [ pending, inProgress, cancelled, done, failed ]
+        description: |
+          The status of this redaction.
+        example: "pending"
+      redactionOperator:
+        description: |
+          A block containing the href and current name of the operator who scheduled the redaction.
+
+        type: object
+        example: {"name": "REST Operator", "href": "https://localhost:8904/api/items/100"}
 
 ######################################################################
 
@@ -3991,7 +4295,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/competencies?skip=100"
+          href: "https://localhost:8904/api/competencies?skip=1000"
 
   Competency summary:
     description: |
@@ -4107,7 +4411,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/card_types/assign?skip=100"
+          href: "https://localhost:8904/api/card_types/assign?skip=1000"
 
   Card type:
     description: |
@@ -4177,6 +4481,16 @@ definitions:
         example: "16777215"
       serverDisplayName:
         <<: *SERVER
+      regex:
+        description: |
+          This is the regular expression that a Card Type text card number
+          must match before Command Centre will accept it. 
+        type: string
+        example: "^[A-Za-z0-9]+$"
+      regexDescription:
+        description: Regular expressions often need explaining.
+        type: string
+        example: "Only alphanumeric characters"
 
 ######################################################################
 
@@ -4282,9 +4596,15 @@ definitions:
         type: string
         format: url
         description: |
-          DELETE this URL to remove the cardholder from this operator group.
+          [DELETE](#operation--api-cardholders--id--operator_groups--membership_id--delete) this URL
+          to remove the cardholder from this operator group.
 
           DELETE is the only verb you can use on this URL.  GET will always return a 404.
+
+          It is not a default field - if you want it, you need to request it using the `fields`
+          query parameter.
+
+          Added in 8.70.
 
       cardholder: {type: object, description: 'The name and href of the member cardholder.'}
     example:
@@ -4355,13 +4675,34 @@ definitions:
       required:
         type: boolean
         example: false
-        description:  If true, every cardholder with this PDF must have a value for it.
+        description:  If true, every cardholder with this PDF must have a value for it.  No blanks allowed.
       unique:
         type: boolean
         example: false
-        description:  If true, every cardholder with a value for this PDF must have a different value.
-      privilege:
-        description: Reserved for future use.  Do not use.
+        description: |
+          If true, every cardholder with a value for this PDF must have a different value.
+
+          After 8.70 this will not show for date and image PDFs, because it can never be true for
+          them.
+      defaultAccess:
+        type: string
+        example: "fullAccess"
+        enum: [ "noAccess", "readOnly", "fullAccess" ]
+        default: "fullAccess"
+        description: |
+          This is the access that operators will have to cardholders' values of this PDF if the
+          operator is not a member of an operator group that overrides it.  Check the operator
+          group's 'Personal data' tab in the Configuration Client.
+      operatorAccess:
+        description: |
+          This is the access that your operator has to cardholders' values of this PDF, including if
+          the operator is a member of an operator group that overrides it. You will only get this
+          field if you ask for it with the `fields` parameter.
+
+          New in 8.80.
+        type: string
+        enum: [ "noAccess", "readOnly", "fullAccess" ]
+        example: "fullAccess"
       sortPriority:
         description: |
           This is called 'sort order' in the Configuration Client.  Interactive clients use this
@@ -4388,6 +4729,16 @@ definitions:
         description: Regular expressions often need explaining.
         type: string
         example: "@ least"
+      notificationDefault:
+        description: |
+          This value is copied to the 'notification' flag on a cardholder's value for this PDF when
+          they first gain membership of one of this PDF's access groups.  It will only appear for
+          PDF types that can receive notifications (email addresses and mobile numbers), and only if
+          you ask for it with the `fields` parameter.
+
+          New in 8.50.
+        type: boolean
+        example: false
       imageWidth:
         description: |
           The maximum width of an image stored in this PDF, in pixels, for image PDF types.  You
@@ -4409,10 +4760,26 @@ definitions:
           Whether this image PDF stores BMPs, JPEGs, or PNGs.  You will only get this field if you
           ask for it with the `fields` parameter.
 
-          New in 8.50.
+          New in 8.50.  Deprecated in 8.70 by `contentType`, which is more standard.
         type: string
         enum: [bmp, jpg, png]
         example: "jpg"
+      contentType:
+        description: |
+          Whether this image PDF stores BMPs, JPEGs, or PNGs.  You will only get this field if you
+          ask for it with the `fields` parameter.
+
+          New in 8.70.
+        type: string
+        enum: [image/bmp, image/jpeg, image/png]
+        example: "image/jpeg"
+      isProfileImage:
+        description: |
+          True if and only if this PDF holds images and it is set as a profile image.
+
+          New in 8.70.
+        type: boolean
+        example: false
 
 ######################################################################
 
@@ -4437,7 +4804,7 @@ definitions:
           href:
             type: string
             format: url
-            example: "https://localhost:8904/api/receptions?pos=100"
+            example: "https://localhost:8904/api/receptions?pos=1000"
 
   Reception:
     description: |
@@ -4485,6 +4852,87 @@ definitions:
           parameter.
 
 ######################################################################
+  Redaction:
+    description: |
+      An array of these comes from `GET /cardholders/redactions`.
+
+    allOf:
+      - type: object
+        properties:
+          cardholder:
+            type: object
+            description: |
+              The href of the cardholder whose events or item this redaction should affect.
+
+              Required.
+            example: {"href": "https://localhost:8904/api/cardholders/630"}
+          finished:
+            type: string
+            description: |
+              When the redaction finished.
+
+              Will be missing from pending redactions.
+            format: date-time
+            example: "2022-01-01T00:00:00Z"
+          message:
+            type: string
+            description: |
+              Translated string from the redaction's error code.  Will be absent if empty, or if the
+              redaction is pending or complete.
+            example: "Invalid cardholder"
+          details:
+            type: string
+            description: |
+              A more detailed description of what went wrong.
+
+              Not translated.  Will be absent if empty, or if the redaction is pending or complete.
+
+            example: ""
+      - $ref: "#/definitions/Cardholder redaction"
+
+######################################################################
+  Redaction POST Example:
+    description: |
+      POST one of these to schedule a redaction.
+
+    properties:
+      cardholder:
+        type: object
+        description: |
+          The href of the cardholder whose events or item this redaction should affect.
+
+          Required.
+        example: {"href": "https://localhost:8904/api/cardholders/630"}
+      type:
+        type: string 
+        enum: [ normalEvents, cardholder ]
+        description: |
+          Whether this redaction is for events or cardholder information.
+
+          Required.
+        example: "normalEvents"
+      when:
+        type: string
+        description: |
+          When redaction is meant to happen.  This should be in the future.  If it is in the past,
+          the service returns 400-Bad Request Invalid Start Time.
+
+          Optional.  If it is absent, it means to do it asap.
+
+        format: date-time
+        example: "2023-01-01T00:00:00Z"
+      before:
+        type: string
+        description: |
+          For event redactions, do not redact any events after this time.  No effect on cardholder
+          information redactions.
+
+          Optional.
+
+        format: date-time
+        example: "2022-01-01T00:00:00Z"
+
+######################################################################
 
   Role search:
     description: |
@@ -4510,7 +4958,7 @@ definitions:
           href:
             type: string
             format: url
-            example: "https://localhost:8904/api/roles?pos=100&sort=id"
+            example: "https://localhost:8904/api/roles?pos=1000&sort=id"
 
   Role:
     description: |
@@ -4569,7 +5017,7 @@ definitions:
           href:
             type: string
             format: url
-            example: "https://localhost:8904/api/visits?pos=100&sort=id"
+            example: "https://localhost:8904/api/visits?pos=1000&sort=id"
 
   Visit:
     description: |
@@ -4734,8 +5182,8 @@ paths:
       description: |
         This call returns cardholders matching your search criteria.
 
-        The result will contain no more than 100 cardholders, or as many as you asked for in your
-        request; you should follow the `next` link, if it is present, to collect the next batch.
+        The result will contain no more than 100 or 1000 cardholders depending on your version; you
+        should follow the `next` link, if it is present, to collect the next batch.
 
         When you have loaded all the cardholders there will be no `next` link.
 
@@ -4757,13 +5205,13 @@ paths:
         type: integer
         minimum: 1
         description: |
-          The maximum number of cardholders to return per page.
+          Sets maximum number of cardholders to return per page.
 
           Older versions of Command Centre returned 100.  That is acceptable for a GUI application
           that will only display the first page of cardholders, but for integrations that intend to
           proceed through the entire database it causes a lot of chatter.
 
-          Version 8.50 will return 1000 items per request by default.  1000 is about where a graph
+          Version 8.70 will return 1000 items per request by default.  1000 is about where a graph
           of performance versus page size begins to level out.  You may see some improvement by
           taking it even higher.
 
@@ -4773,7 +5221,7 @@ paths:
         type: string
 
         description: |
-          Only return cardholders with a name that matches this string.  By default, it is
+          Limits the results to cardholders with a name that matches this string.  By default, it is
           a substring search against the first name or the last name or the concatenation
           'lastName, firstName'; surround the parameter with double quotes `"..."` for an
           exact search.
@@ -4787,6 +5235,9 @@ paths:
           for the empty string (`name=`).  You will receive no cardholders if you search for those
           with no name (`name=""`), as all items must have a name.
 
+          Because a plus sign `+` represents a space in a query string, replace each plus sign in
+          your search string with `%2d`.
+
           The search parameters form a logical conjunction.  They are ANDed
           together.  Therefore if you search for `name=Mary&pdf_1315=nanny` you will only get back
           cardholders with 'Mary' in their name and 'nanny' in the PDF with ID 1315.
@@ -4796,13 +5247,19 @@ paths:
         required: false
         type: string
         description: |
-          Only return cardholders with a value for the Personal Data Field with this ID
+          Limits the results to cardholders with a value for the Personal Data Field with this ID
           that matches the parameter.
 
           By default, it is a substring match; surround it with double quotes `"..."` for an exact
-          match.  Without quotes, adding a percent sign `%` or underscore `_` will anchor the string
+          match.  Tests showed an exact match to be 100x quicker than a substring search on a large
+          database.
+
+          Without quotes, adding a percent sign `%` or underscore `_` will anchor the string
           at both ends.  A `_` will match any single character, and a `%` will match any substring.
           A lone `%` will return any cardholder with this PDF set to a non-null value.
+
+          Because a plus sign `+` represents a space in a query string, turn plus signs in your
+          string into `%2d`.
 
           The search is always case-insensitive.
 
@@ -4823,10 +5280,10 @@ paths:
         enum: []
 
         description: |
-          Return these fields in the search results.  The values you can list are the same as you
-          can for the details page, [listed here](#field-names-in-query-parameters).  Using it you can
-          return everything on the search page that you would find on the details page with the
-          exception of the `edit` and `updates` links.  Separate values with commas.
+          Specifies the fields you want in the search results.  The values you can use here are the
+          same as you can for the [details page](#operation--api-cardholders--id--get).
+          Using it you can return everything on the search page that you would find on the details
+          page with the exception of the `edit` and `updates` links.  Separate values with commas.
 
           Use the special value `defaults` to return the fields you would have received had you not
           given the parameter at all.  Obviously only do that if you have more to add.
@@ -4933,9 +5390,9 @@ paths:
         enum: 
 
         description: |
-          Return these fields.  The values you can list are the same as the field names in the
-          [detail results](#definition-Cardholder-detail).  Use it to return fewer fields than
-          normal.  Separate values with commas.
+          Specifies the fields you want in the results.  The values you can list are the same as the
+          field names in the [detail results](#definition-Cardholder-detail).  Use it to return
+          fewer fields than normal.  Separate values with commas.
 
           Treat the string matches as case sensitive:  use 'lastName' rather than 'lastname'.
 
@@ -5030,7 +5487,9 @@ paths:
           description: |
             The operator does not have the privilege to modify that cardholder, or you attempted to
             set a field for which you have no privilege (such as 'notes' or 'operatorPassword', both
-            of which require special privileges).
+            of which require special privileges).  In versions prior to 8.80 your operator needed
+            'Edit cardholders' to de-authorise a cardholder.  In 8.80 and later, 'De-authorise
+            cardholder' on its own is enough.
 
     delete:
       tags: [ Cardholders ]
@@ -5045,7 +5504,8 @@ paths:
             another construct (a personalised notification, for example).
         403:
           description: |
-            There is no such cardholder, or the operator does not have permissions to delete it.
+            There is no such cardholder, or the operator does not have permissions to delete it,
+            or the server is not licensed for cardholder operations.
         409:
           <<: *409CH
 
@@ -5322,16 +5782,19 @@ paths:
           schema: {$ref: '#/definitions/Cardholder Update Location POST example'}
           example: {"accessZone":{"href": "https://localhost:8904/items/412"}}
           description: |
-            This should contain the href of the target access zone.  The example here came from the
-            items controller.
+            This should contain the href of the target access zone.  The example here is a different
+            style from the linked example, which contains `access_zones` in the URL rather than
+            `items`, because it came from the items controller.  Both styles work.
       responses: 
         204: 
           description: "Success."
-        4xx:
+        400:
           description: |
-            The parameters are invalid, or other errors prevented the update, such as the cardholder
-            being locked for editing by an interactive client, or the operator does not have a
-            privilege that allows moving this cardholder to the target zone.
+            The cardholder ID or access zone href is invalid.
+        403:
+          description: |
+            The operator does not have a privilege ('Manage Cardholder Location') that allows moving
+            this cardholder to the target zone.
 
   /api/cardholders/{id}/edit:
     get:
@@ -5340,10 +5803,14 @@ paths:
       summary:  Find out which fields you can edit
 
       description: |
-        You get here from the cardholder detail page.  It tells you which fields you have the
-        privileges to edit.
+        This tells you which fields your REST operator can edit based on its privileges.
 
-        This method returns 400 if there are two
+        Gallagher uses this call for rapidly-evolving internal applications.  As such, its results
+        are tuned to those applications and are subject to change.  Rather than relying on this
+        call, we suggest that you simply give your REST operator the privileges it needs to access
+        to everything it needs.
+
+        Note that this method returns 400 if there are two
         PDFs in the system with the same name.  CC insists on unique names for items when you create
         them but you can end up with duplicates when you form a multiserver cluster out of
         standalone installations.  You should move on that, because having two PDFs with the same
@@ -5352,7 +5819,6 @@ paths:
       responses:
         200:
           description:  Success.
-          schema: {$ref: '#/definitions/Cardholder edit'}
         4xx: { description: "The parameter is invalid or you do not have privileges for the operation." }
 
 ######################################################################
@@ -5382,19 +5848,20 @@ paths:
 
         Take this URL from the href field in the `features.cardholders.changes` section of `/api`.
 
-        ### Efficiency tips
+        ### Efficiency tips when collecting cardholder changes
 
         - Filter for the kinds of changes you are after using the `filter` parameter.  If you are
           only interested in people's access group memberships, for example, add
           `filter=accessGroups` to your GET, and you will not be troubled with all the other kinds
           of changes that cardholders go through.
 
-        - Ease the load on the server, the network, and your client by reducing the fields in the
+        - The default set of fields is large and expensive to compute.  Ease the load on the server,
+          the network, and your client by asking for a smaller
           response.  For example if you are only interested in the current state of a cardholder's
           group memberships and do not care who made the change, or when, or what state the
-          cardholder was in before use `fields=item,cardholder.accessGroups`.  You need 'item' so
+          cardholder was in before use `fields=item,cardholder.accessGroups`.  You need `item` so
           you can tell which cardholder changed.  If you store your own identifier in a PDF you
-          could drop 'item' and add 'pdf_XXX', where 'XXX' is the ID of your PDF.
+          could drop `item` and add `cardholder.pdf_XXX`, where 'XXX' is the ID of your PDF.
 
         - Sleep for as long as you can between calls.
 
@@ -5407,9 +5874,8 @@ paths:
         required: false
         type: integer
         minimum: 1
-        maximum: 10000
-        default: 1000
-        description: The maximum number of changes to return per page.
+        maximum: 1000
+        description: Sets the maximum number of changes to return per page.
 
       - name: "pos"
         in: query
@@ -5432,23 +5898,24 @@ paths:
           cards, accessGroups, competencies, notifications, relationships, lockers]
 
         description: |
-          Limit the search results to the changes that affected these fields, and limit the
+          Limits the search results to the changes that affected these fields, and limits the
           `oldValues` and `newValues` blocks to these fields.  You can specify practically any of
           the fields in the [cardholder detail](#definition-Cardholder-detail).  You can also go
           into more detail; for example you can monitor a cardholder's cards' validity dates using
           `filter=cards.from,cards.until`.
 
-          `filter` reduces the number of results; if you want to change the blocks in each result,
-          use `fields`.
+          `filter` reduces the number of results; if you want to choose the blocks you receive in
+          each result, use `fields`.
 
           If you do not supply a filter parameter it will use the same fields you get in a
           cardholder details page.  That is nearly everything the API has for a cardholder, but
           omits some seldom-used or expensive features such as card tracing and the large PIV
           fields.  If you want to monitor them you must list them here.  For example,
-          `filter=defaults,cards.trace` will add the card trace flag to the usual results.
+          `filter=defaults,cards.trace` will add the card trace flag to the usual filter.
 
           `personalDataFields` will filter for PDF changes, and will give you the
-          personalDataDefinitions block plus the PDF values that changed.
+          personalDataDefinitions block plus the PDF values that changed.  You cannot filter for
+          changes to a particular PDF:  you will need to do that in your client.
 
           Being able to monitor operator settings arrived in 8.50 and operator group memberships in
           8.60.
@@ -5469,7 +5936,7 @@ paths:
           cardholder, cardholder.* ]
 
         description: |
-          Only return these blocks in the results.
+          Limits the blocks in the results.
 
           `fields` affects the blocks in each result; if you want to reduce the number of results,
           use `filter`.
@@ -5489,6 +5956,19 @@ paths:
 
           Use `personalDataFields` to monitor changes to PDF values on a cardholder.
 
+      - name: "deadline"
+        in: query
+        required: false
+        type: integer
+        minimum: 0
+        default: 50
+        description: |
+          Sets the number of seconds after which the server will abort the query and return a 500.
+          If that happens, you should try again later when the server (particularly the database
+          server) is not so busy.
+
+          Added in 8.80.
+
       responses:
         200:
           description: Success.
@@ -5496,6 +5976,9 @@ paths:
         4xx:
           description: |
             The site does not have the RESTCardholders licence.
+        500:
+          description: |
+            The server was too busy to complete the request before the deadline.
 
 ######################################################################
 
@@ -5509,7 +5992,7 @@ paths:
 
         This returns access groups matching your search criteria.
 
-        The result will contain no more than 100 groups, unless you ask for more in your request; you
+        The result will contain no more than 100 or 1000 groups depending on your version; you
         should follow the `next` link, if it is present, to collect the next batch.
 
         When you have loaded all the access groups there will be no `next` link.
@@ -5534,8 +6017,9 @@ paths:
         required: false
         type: integer
         minimum: 1
-        default: 100
-        description: The maximum number of access groups to return per page.
+        description: |
+          Sets the maximum number of access groups to return per page.  The default depends on your
+          server version;  you should set it appropriately for your application.
       - $ref: "#/parameters/name"
       - $ref: "#/parameters/division"
       - $ref: "#/parameters/description"
@@ -5548,10 +6032,10 @@ paths:
         enum: [href, id, name, description, parent, division, children, notes, personalDataDefinitions,
             cardholders, access, saltoAccess, alarmZones, ...]
         description: |
-          Return these fields in the search results.  The values you can list are the same as the
-          field names in the [details page](#definition-Access-group-detail).  Using it you can
-          return everything on the search page that you would find on the details page.  Separate
-          values with commas.
+          Sets the list of fields to return in the search results.  The values you can list are the
+          same as the field names in the [details page](#definition-Access-group-detail).  Using it
+          you can return everything on the search page that you would find on the details page.
+          Separate values with commas.
 
           Use the special value `defaults` to return the fields you would have received had you not
           given the parameter at all.  Add more after a comma.
@@ -5600,9 +6084,9 @@ paths:
         enum: [href, id, name, description, parent, division, children, notes,
           personalDataDefinitions, access, saltoAccess, alarmZones, ...]
         description: |
-          Return these fields.  The values you can list are the same as the field names in the
-          [detail results](#definition-Access-group-detail).  Use it to return less data than
-          normal.  Separate values with commas.
+          Sets the list of fields to return.  The values you can list are the same as the field
+          names in the [detail results](#definition-Access-group-detail).  Use it to return less
+          data than normal.  Separate values with commas.
 
           Treat the string matches as case sensitive.
 
@@ -5679,8 +6163,8 @@ paths:
       description: |-
         This returns competencies matching your search criteria.
 
-        The result will contain no more than 100 competencies, unless you ask for more in your
-        request;  you should follow the `next` link (if present) for the next batch.
+        The result will contain no more than 100 or 1000 competencies depending on your version; you
+        should follow the `next` link (if present) for the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         competencies.  Perhaps there are none in the divisions in which your operator has 'View
@@ -5709,10 +6193,10 @@ paths:
         enum: [href, id, name, shortName, description, division, notes, expiryNotify, noticePeriod,
           defaultExpiry, defaultAccess]
         description: |
-          Return these fields in the search results.  The values you can list are the same as the
-          field names in the [details page](#definition-Competency-detail).  Using it you can
-          return everything on the search page that you would find on the details page.  Separate
-          values with commas.
+          Specifies which fields to return in the search results.  The values you can list are the
+          same as the field names in the [details page](#definition-Competency-detail).  Using it
+          you can return everything on the search page that you would find on the details page.
+          Separate values with commas.
 
           Use the special value `defaults` to return the fields you would have received had you not
           given the parameter at all.  Add more after a comma.
@@ -5756,9 +6240,9 @@ paths:
         enum: [href, id, name, shortName, description, division, notes, expiryNotify, noticePeriod,
           defaultExpiry, defaultAccess]
         description: |
-          Return these fields.  The values you can list are the same as the field names in the
-          [details page](#definition-Competency-detail).  Use it to reduce the size of the result
-          document.  Separate values with commas.
+          Specifies which fields to return.  The values you can list are the same as the field names
+          in the [details page](#definition-Competency-detail).  Use it to reduce the size of the
+          result document.  Separate values with commas.
 
           Treat the string matches as case sensitive.
 
@@ -5810,10 +6294,10 @@ paths:
         type: array
         items: { type: string }
         enum: [ href, id, name, division, facilityCode, availableCardStates, credentialClass,
-        minimumNumber, maximumNumber, notes ]
+        minimumNumber, maximumNumber, notes, regex, regexDescription ]
 
         description: |
-          Return these fields in the search results, instead of the default set (which contains
+          Specifies which fields to return instead of the default set (which contains
           nearly every field).  Separate values with commas.
 
           Treat the string matches as case sensitive:  use 'facilityCode' rather than
@@ -5844,8 +6328,8 @@ paths:
       description: |
         This returns locker banks matching your search criteria.
 
-        The result will contain no more than 100 objects; you should follow the `next` link, if it
-        is present, to collect more.
+        The result will contain no more than 100 or 100 objects depending on your version; you
+        should follow the `next` link, if it is present, to collect more.
 
         If the result set is empty it means there are no locker banks in the divisions in which the
         operator has a privilege that allows listing them, such as 'View lockers and assignments'.
@@ -5862,10 +6346,9 @@ paths:
         required: false
         type: integer
         minimum: 1
-        default: 100
         description: |
-          The maximum number of locker banks to return per page.  Depending on the number of lockers
-          you have in each bank, you may find that 100 banks is too many for one page.
+          Sets the maximum number of locker banks to return per page.  The default depends on your
+          server version;  you should set it appropriately for your application.
       - $ref: "#/parameters/name"
       - $ref: "#/parameters/division"
       - $ref: "#/parameters/description"
@@ -5881,7 +6364,7 @@ paths:
         lockers.assignments]
 
         description: |
-          Return these fields in the search results.  The values you can list are the same as the
+          Sets which fields to return.  The values you can list are the same as the
           field names in the [details page](#definition-Locker-bank-detail).  Using it you can
           return everything on the search page that you would find on the details page.  Separate
           values with commas.
@@ -5935,9 +6418,9 @@ paths:
         enum: [href, id, name, shortName, description, division, notes, connectedController,
                lockers, lockers.defaults, lockers.connectedController, ...]
         description: |
-          Return these fields.  The values you can list are the same as the field names you would
-          get in the [details page](#definition-Locker-bank-detail).  Use it to cut back on the size of
-          the response for large locker banks.  Separate values with commas.
+          Sets which fields to return.  The values you can list are the same as the field names you
+          would get in the [details page](#definition-Locker-bank-detail).  Use it to cut back on
+          the size of the response for large locker banks.  Separate values with commas.
 
           Treat the string matches as case sensitive.
 
@@ -5983,7 +6466,7 @@ paths:
         enum: [href, id, name, shortName, description, division, assignments, notes, commands,
                connectedController]
         description: |
-          Return these fields.  Use it to cut back on the size of the response for a locker
+          Sets which fields to return.  Use it to cut back on the size of the response for a locker
           with many assignments.  Separate values with commas.
 
           Treat the string matches as case sensitive.
@@ -6036,8 +6519,8 @@ paths:
 
         This returns operator groups matching your search criteria.
 
-        The result will contain no more than 100 groups, unless you ask for more in your request; you
-        should follow the `next` link, if it is present, to collect the next batch.
+        The result will contain a batch of groups; you should follow the `next` link, if it is
+        present, to collect the next batch.
 
         When you have loaded all the operator groups there will be no `next` link.
 
@@ -6064,8 +6547,9 @@ paths:
         required: false
         type: integer
         minimum: 1
-        default: 100
-        description: The maximum number of operator groups to return per page.
+        description: |
+          Sets the maximum number of operator groups to return per page.  The default depends on your
+          server version; you should set it appropriately for your application.
       - $ref: "#/parameters/name"
       - $ref: "#/parameters/division"
       - $ref: "#/parameters/description"
@@ -6077,7 +6561,7 @@ paths:
         default: ['defaults']
         enum: [href, id, name, description, division, notes, cardholders, divisions]
         description: |
-          Return these fields in the search results.  The values you can list are the same as the
+          Sets which fields to return.  The values you can list are the same as the
           field names in the [details page](#definition-Operator-group-detail).  Using it you can
           return everything on the search page that you would find on the details page.  Separate
           values with commas.
@@ -6126,9 +6610,9 @@ paths:
         default: ['defaults']
         enum: [defaults, href, id, name, description, division, notes, cardholders, divisions]
         description: |
-          Return these fields.  The values you can list are the same as the field names in the
-          [detail results](#definition-Operator-group-detail).  Use it to return the notes, which
-          don't appear by default.  Separate values with commas.
+          Sets which fields to return.  The values you can list are the same as the field names in
+          the [detail results](#definition-Operator-group-detail).  Use it to return the notes,
+          which don't appear by default.  Separate values with commas.
 
           Treat the string matches as case sensitive.
 
@@ -6162,22 +6646,46 @@ paths:
         You can find this call's URL in the `cardholders` block of an operator group.
 
         Added in 8.50.
+
+        There are two hrefs per cardholder.  The lower-level href is the identifier for the
+        cardholder, found throughout this API.  The higher-level `href` field only appears if you
+        ask for it using the `fields` query parameter, and only if the server is 8.70 or later.  It
+        refers to the cardholder's membership in the operator group.  If you DELETE it, you will
+        remove the cardholder from this operator group (which will demote them from an operator to a
+        regular cardholder if this was their last remaining operator group).
+
       parameters:
-        - name: "id"
-          in: path
-          required: true
-          type: string
-          description: "The identifier of the operator group."
+      - name: "id"
+        in: path
+        required: true
+        type: string
+        description: "The identifier of the operator group."
+      - name: "fields"
+        in: query
+        required: false
+        type: array
+        items: { type: string }
+        default: ['defaults']
+
+        enum: [ defaults, cardholder, href ]
+
+        description: |
+          Specifies the fields you want in the search results.  The only two candidates are
+          `cardholder` and `href`.  The default is `fields=defaults`, which is the same as
+          `fields=cardholder`.  Separate values with commas.
+
       responses: 
         200: 
           description: "Success."
           schema: { type: array, items: {$ref: '#/definitions/Operator group membership' }}
           example:
             cardholders:
-              - cardholder:
+              - href: "https://localhost:8904/api/cardholders/325/operator_groups/EBDRSD"
+                cardholder:
                   name: "Boothroyd, Algernon"
                   href: "https://localhost:8904/api/cardholders/325"
-              - cardholder:
+              - href: "https://localhost:8904/api/cardholders/329/operator_groups/AFADEMED"
+                cardholder:
                   name: "Miles Messervy"
 
         4xx:
@@ -6195,13 +6703,9 @@ paths:
         Personal Data Definitions' privilege, or its 'Edit' equivalent, on a PDF's division in order
         to see it.
 
-        The result will contain no more than 100 objects; you should follow the `next` link, if it
-        is present, to collect more.  When you have loaded all the PDF definitions there will no
-        `next` link.
-
-        If your site has more than 100 PDFs and it is likely that someone will rename them between
-        API calls you should either set your page size (`top`) higher or sort by ID so that the
-        pagination is not affected.
+        The result will contain no more than 100 or 1000 objects, depending on your version; you
+        should follow the `next` link, if it is present, to collect more.  When you have loaded all
+        the PDF definitions there will no `next` link.
 
         Take this URL from the href in the `features.personalDataFields.personalDataFields`
         section of `/api`.
@@ -6258,9 +6762,9 @@ paths:
       description: |
         This returns the receptions you are privileged to view.
 
-        The result will contain no more than 100 objects; you should follow the `next` link, if it
-        is present, to collect more, or use the `top` parameter to get more per page.  Receptions
-        are small, so setting a limit of 1000 is sensible.
+        The result will contain no more than 100 or 1000 objects depending on your version; you
+        should follow the `next` link, if it is present, to collect more, or use the `top` parameter
+        to get more per page.  Receptions are small, so setting a limit of 1000 is sensible.
 
         When you have loaded all the receptions there will no `next` link.
 
@@ -6310,6 +6814,102 @@ paths:
             ('View Site', 'Edit Site', 'View Visits', 'Edit Visits', or 'Manage Receptions').
 
 ######################################################################
+  /api/cardholders/redactions:
+    get:
+      tags: [ "Redactions" ]
+      summary: Search redactions
+      description: |
+        All the cardholders' redactions.  Paginated.
+
+      parameters:
+        - name: "cardholder"
+          in: query
+          required: false
+          type: string
+          description: |
+            Limits the results to redactions to cardholders with these IDs.  Separate with commas.
+
+        - name: "status"
+          in: query
+          required: false
+          type: string
+          enum: [ pending, inProgress, cancelled, done, failed ]
+          description: |
+            Limits the results to redactions with this status.  Separate with commas.
+
+        - name: "type"
+          in: query
+          required: false
+          type: string
+          enum: [ normalEvents, cardholder ]
+          description: |
+            Limits the results to redactions of this type.  Separate with commas.
+
+        - name: "after"
+          in: query
+          required: false
+          type: string
+          format: date-time
+          description: |
+            Limits the results to redactions that were scheduled to occur after this time.
+
+        - name: "before"
+          in: query
+          required: false
+          type: string
+          format: date-time
+          description: |
+            Limits the results to redactions that were scheduled to occur before this time.
+
+      responses:
+        200:
+          description: An array of redactions and a link to the next page.
+          schema: {$ref: '#/definitions/Redaction'}
+        403:
+          description: The site does not have the RESTCardholders licence.
+    post:
+      tags: [ "Redactions" ]
+      summary: Schedule a redaction
+      description: |
+        Schedules a cardholder redaction.
+
+      parameters:
+        - name: "this string not rendered"
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/Redaction POST Example'}
+          description: |
+            Required fields are `cardholder` and `type`
+      responses:
+        201:
+          description: "Success."
+        400:
+          description: |
+            The cardholder does not exist.
+        403:
+          description: |
+            The operator does not have permissions to redact or to delete a cardholder, 
+            or the server is not licensed for cardholder operations.
+    delete:
+      tags: [ "Redactions" ]
+      summary: Cancel a redaction
+      description: |
+        Deletes a redaction record.  Has to be pending.
+
+        Note that the only way to modify a redaction is to delete it and create a new one for the
+        same cardholder.  This is due to concerns about redaction's effect on auditing.
+      responses:
+        201:
+          description: "Success."
+        403:
+          description: |
+            The operator does not have permissions to redact or to delete a cardholder, 
+            or the server is not licensed for cardholder operations.
+        404:
+          description: |
+            No such redaction, or your operator cannot see it.
+
+######################################################################
   /api/roles:
     get:
       tags: [ "Roles" ]
@@ -6317,9 +6917,9 @@ paths:
       description: |
         This returns the roles you are privileged to view.
 
-        The result will contain no more than 100 objects; you should follow the `next` link, if it
-        is present, to collect more, or use the `top` parameter to get more per page.  Roles are
-        small, so a limit of 1000 is sensible.
+        The result will contain no more than 100 or 1000 objects depending on your version; you
+        should follow the `next` link, if it is present, to collect more, or use the `top` parameter
+        to get more per page.  Roles are small, so a limit of 1000 is sensible.
 
         When you have loaded all the roles there will no `next` link.
 
@@ -6347,8 +6947,9 @@ paths:
       description: |
         This returns the visits you are privileged to view.
 
-        The result will contain no more than 100 objects; you should follow the `next` link, if it
-        is present, to collect more, or use the `top` parameter to get more per page.
+        The result will contain no more than 100 or 1000 objects depending on your version; you
+        should follow the `next` link, if it is present, to collect more, or use the `top` parameter
+        to get more per page.
 
         When you have loaded all the visits there will no `next` link.
 

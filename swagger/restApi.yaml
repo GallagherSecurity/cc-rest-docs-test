@@ -52,8 +52,23 @@ info:
 
     #### API changes on the roadmap
 
-    * A future version will increase the number of items in its search results and sort them
-    differently, if you did not use query parameters to override the defaults.
+    * A future version will sort its search results differently if you do not use a query parameter to
+      override the default.
+
+    #### Changes in 8.80
+
+    * Early-adopter support for [Interlock groups](#tag-Interlock-Groups).
+
+    #### Changes in 8.70
+
+    * The server returns 1000 items by default, instead of 100.
+
+    * A new query parameter `requested_by` lets you attribute overrides to another cardholder.  Your
+      operator must have the 'Delegate API Activity' privilege in the cardholder's division.
+
+    * Item updates now include fields that changed to an empty value.  Versions up to 8.60 returned
+      an update but did not tell you which field changed or what it changed to, if it changed to a
+      blank.
 
     #### Changes in 8.60
 
@@ -102,8 +117,8 @@ info:
 
     * When downloading more than one page of items, sort by ID.
 
-    * Set your page size as large as your client can handle.  The defualt used to be 100; using the
-      `top` parameter to take it to 1000 or more gives _much_ better throughput.
+    * Set your page size as large as your client can handle.  The default was 100 before 8.70; using
+      the `top` parameter to take it to 1000 or more gives _much_ better throughput.
 
     * (In v8.00 or later) avoid the details page by adding detail fields to the summary page with
       the [`fields` parameter](#topic-Field-specifiers).  One summary page of 1,000 items, while
@@ -220,7 +235,8 @@ x-spectacle-topics:
       Pre-arm check while Alarm Zone is arming.
       </pre>
 
-      For one-line display, the `status` field is the same thing with line feeds replaced by spaces.
+      For one-line display, the `status` field is the same thing with spaces instead of line
+      endings.
 
       Neither of these is intended for integrations.  By all means display them in a user interface
       (as Gallagher software does) but do not attempt to parse information out of them.
@@ -353,8 +369,8 @@ x-common-blocks-this-is-made-up:
       Treat the string matches as case-sensitive.
 
       In v8.00 you will receive the href and internal ID even if you did not ask for them.  In 8.10
-      and later you will only get what you asked for.  If you are going to send the fields parameter
-      and need the href or ID, be explicit.
+      and later you will only get what you asked for.  If you are going to send the `fields`
+      parameter and need the href or ID, be explicit.
 
   fds_ignored2: &FIELDSDESC_SUM_810
     description: |
@@ -376,8 +392,8 @@ x-common-blocks-this-is-made-up:
       Treat the string matches as case-sensitive.
 
       In v8.00 you will receive the href and internal ID even if you did not ask for them.  In 8.10
-      and later you will only get what you asked for.  If you are going to send the fields parameter
-      and need the href or ID, be explicit.
+      and later you will only get what you asked for.  If you are going to send the `fields`
+      parameter and need the href or ID, be explicit.
 
   fdd_ignored2: &FIELDSDESC_DET_810
     description: |
@@ -402,20 +418,35 @@ x-common-blocks-this-is-made-up:
       The search and details pages do not return status flags by default, because an item's status
       is unknown until something is monitoring it.  If you want status flags on the search and
       details pages you must ask for them using the `fields` parameter, but our advice is to monitor
-      them using the item's `updates` link or (if you are running 8.30 or better) [status
-      subscriptions](events.html#status-subscriptions).  See the [item status](#topic-Item-status)
-      section for a full description of how to stay up to date with item status, and this item's
+      them using [status subscriptions](events.html#status-subscriptions) if you are running 8.30 or
+      later, otherwise the item's `updates` link.  See the [item status](#topic-Item-status) section
+      for a full description of how to stay up to date with item status, and this item's
       introduction in the Operations section for what flags this item might return and what they
       mean.
     type: array
     items: { type: string, example: "controllerOffline" }
+
+  statustext_: &STATUSTEXT
+    description: |
+      This field contains a translated multi-line human-readable description of the item's status.
+      See the `statusFlags` field for notes on when you should ask for this field and how to keep it
+      up to date.
+    type: string
+    example: "Controller offline."
+  status_: &STATUS
+    description: |
+      This field contains the `statusText` field with line endings turned into spaces to make a
+      one-line string.  See the `statusFlags` field for notes on when you should ask for this field
+      and how to keep it up to date.
+    type: string
+    example: "Controller offline."
 
   update_fields_desc_ignored: &UPDFIELDS
     in: query
     required: false
     type: string
     description: |
-      Return these fields in the update, instead of the default set.  Note that removing fields also
+      Returns these fields in the update, instead of the default set.  Note that removing fields also
       saves you from updates to those fields.
 
   update_fields_ignore: &UPDFIELDSENUM
@@ -448,7 +479,7 @@ x-common-blocks-this-is-made-up:
     in: query
     required: false
     type: string
-    enum: [href, id, name, shortName, description, division, commands, connectedController, doors, zoneCount, statusFlags, status, notes, updates]
+    enum: [href, id, name, shortName, description, division, commands, connectedController, doors, zoneCount, statusFlags, statusText, status, notes, updates]
 
   alz_ignored: &ALZFIELDS
     in: query
@@ -461,7 +492,7 @@ x-common-blocks-this-is-made-up:
     required: false
     type: string
     enum: [href, id, name, shortName, description, division, commands, connectedController,
-           entryAccessZone, exitAccessZone, statusFlags, status, notes, updates]
+           entryAccessZone, exitAccessZone, statusFlags, statusText, status, notes, updates]
 
   eg_ignored: &ELEVATORGROUPALLFIELDS
     in: query
@@ -480,7 +511,13 @@ x-common-blocks-this-is-made-up:
     in: query
     required: false
     type: string
-    enum: [href, id, name, shortName, description, division, commands, connectedController, voltage, statusFlags, status, notes, updates]
+    enum: [href, id, name, shortName, description, division, commands, connectedController, voltage, statusFlags, statusText, status, notes, updates]
+
+  interlock_: &INTERLOCKFIELDS
+    in: query
+    required: false
+    type: string
+    enum: [href, id, name, shortName, description, division, commands, connectedController, statusFlags, statusText, status, notes, updates]
 
   macro_ignored: &MACROFIELDS
     in: query
@@ -492,7 +529,7 @@ x-common-blocks-this-is-made-up:
     in: query
     required: false
     type: string
-    enum: [href, id, name, shortName, description, division, commands, connectedController, statusFlags, status, notes, updates]
+    enum: [href, id, name, shortName, description, division, commands, connectedController, statusFlags, statusText, status, notes, updates]
 
   schedule_ignored: &SCHEDULEFIELDS
     in: query
@@ -520,7 +557,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/access_zones?skip=100"
+          href: "https://localhost:8904/api/access_zones?skip=1000"
 
   Access Zones as move targets:
     tags:
@@ -549,7 +586,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/access_zones?skip=100"
+          href: "https://localhost:8904/api/access_zones?skip=1000"
 
   Access Zone summary:
     description: |
@@ -897,7 +934,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/alarm_zones?skip=100"
+          href: "https://localhost:8904/api/alarm_zones?skip=1000"
 
   Alarm Zone summary:
     description: |
@@ -1142,7 +1179,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/day_categories?skip=100"
+          href: "https://localhost:8904/api/day_categories?skip=1000"
 
   Day category:
     description: |
@@ -1186,7 +1223,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/doors?skip=100"
+          href: "https://localhost:8904/api/doors?skip=1000"
 
   Door summary:
     description: |
@@ -1354,7 +1391,8 @@ definitions:
                     True iff the elevator car has a front-facing door and the elevator 
                     services the floor with the front of the elevator.
 
-                    This field requires the RESTStatus or (in 8.60 or later) the RESTOverrides
+                    This field requires the RESTStatus licence in versions up to and including 8.50.
+                    Starting with 8.60 it requires either the RESTStatus or the RESTOverrides
                     licence.
                 rearService:
                   type: boolean
@@ -1364,7 +1402,8 @@ definitions:
                     True iff the elevator car has a rear-facing door and the elevator 
                     services the floor with the rear of the elevator.
 
-                    This field requires the RESTStatus or (in 8.60 or later) the RESTOverrides
+                    This field requires the RESTStatus licence in versions up to and including 8.50.
+                    Starting with 8.60 it requires either the RESTStatus or the RESTOverrides
                     licence.
                 floorName:
                   type: string
@@ -1459,7 +1498,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/fence_zones?skip=100"
+          href: "https://localhost:8904/api/fence_zones?skip=1000"
 
   Fence Zone summary:
     description: |
@@ -1631,7 +1670,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/inputs?skip=100"
+          href: "https://localhost:8904/api/inputs?skip=1000"
 
   Input summary:
     description: |
@@ -1696,7 +1735,7 @@ definitions:
                   href:
                     example: "https://localhost:8904/api/inputs/9701/shunt"
                     description: |
-                      [POST](#operation--api-inputs--id--off-shunt) to this to shunt the input.
+                      [POST](#operation--api-inputs--id--shunt-post) to this to shunt the input.
                     type: string
                     format: url
               unshunt:
@@ -1705,7 +1744,7 @@ definitions:
                   href:
                     example: "https://localhost:8904/api/inputs/9701/unshunt"
                     description: |
-                      [POST](#operation--api-inputs--id--off-unshunt) to this to stop shunting the
+                      [POST](#operation--api-inputs--id--unshunt-post) to this to stop shunting the
                       input.
                     type: string
                     format: url
@@ -1715,7 +1754,7 @@ definitions:
                   href:
                     example: "https://localhost:8904/api/inputs/9701/isolate"
                     description: |
-                      [POST](#operation--api-inputs--id--off-isolate) to this to isolate the input.
+                      [POST](#operation--api-inputs--id--isolate-post) to this to isolate the input.
                       Isolated inputs do not prevent alarm zones from arming.
 
                       The link will be missing if the input is shunted.
@@ -1727,12 +1766,123 @@ definitions:
                   href:
                     example: "https://localhost:8904/api/inputs/9701/deisolate"
                     description: |
-                      [POST](#operation--api-inputs--id--off-deisolate) to this to stop isolating
+                      [POST](#operation--api-inputs--id--deisolate-post) to this to stop isolating
                       the input.  The link will be missing if the input is shunted.
                     type: string
                     format: url
 
       - $ref: "#/definitions/Input summary"
+
+#######################################################################
+#######################################################################
+  Interlock Group search:
+    tags:
+      - "Interlock Groups"
+    description: |
+      **API support for interlocks is still in development and may change in future versions.**
+
+      An array of interlock group summaries and a `next` link for more.
+    properties:
+      results:
+        type: array
+        description: An array of interlock group summaries.
+        items: { $ref: '#/definitions/Interlock Group summary' }
+
+      next:
+        type: object
+        description: The link to the next page.  Absent if you have retrieved them all.
+        properties:
+          href: { type: string, format: url }
+        example:
+          href: "https://localhost:8904/api/interlock_groups?skip=1000"
+
+  Interlock Group summary:
+    description: |
+      **API support for interlocks is still in development and may change in future versions.**
+
+      `/api/interlock_groups` returns an array of these.  It is a subset of what you get from an
+      interlock's details page at `/api/interlock_groups/{id}` (linked as the href in this object).
+
+    properties:
+      href:
+        type: string
+        format: url
+        description: |
+          A link to an [interlock group detail](#definition-Interlock-Group-detail) object for this
+          item.
+        example: "https://localhost:8904/api/interlock_group/122322"
+      name:
+        type: string
+        example: "Excercise yard egress"
+
+  Interlock Group detail:
+    description: |
+      **API support for interlocks is still in development and may change in future versions.**
+
+      [/api/interlock_groups/{id}](#operation--api-interlock_groups--id--get) returns one of these.
+
+      Some of the fields will not come from the server unless you request them via the `fields`
+      query parameter.
+
+    allOf:
+      - type: object
+        properties:
+          description:
+            type: string
+            example: "Exercise yard egress."
+          division:
+            type: object
+            description:  The division containing this interlock group.
+            example:
+              href: "https://localhost:8904/api/divisions/2"
+          shortName: {<<: *SHORTNAME}
+          notes: {<<: *NOTES}
+          updates:
+            <<: *UPDATES
+            example: { href: "https://localhost:8904/api/interlock_groups/122322/updates/0_0_0" }
+          statusFlags:
+            <<: *STATUSFLAGS
+            example: ["secure"]
+          statusText:
+            <<: *STATUSTEXT
+            example: "All doors in the group are in a Secure state."
+          status:
+            <<: *STATUS
+            example: "All doors in the group are in a Secure state."
+          connectedController:
+            <<: *CONNECTEDCONTROLLER
+          commands:
+            type: object
+            description: |
+              A block of commands, each represented by a block containing an href that accepts a
+              POST that will send an override to the interlock.
+
+              It will be missing if your operator does not have a privilege that allows overriding
+              the interlock (examples of which are in the documentation for the POSTs).
+
+            properties:
+              disable:
+                type: object
+                properties:
+                  href:
+                    example: "https://localhost:8904/api/interlock_groups/122322/disable"
+                    description: |
+                      [POST](#operation--api-interlock_groups--id--disable-post) to this to disable the
+                      interlock group, allowing the doors to operate independently.
+                    type: string
+                    format: url
+              enable:
+                type: object
+                properties:
+                  href:
+                    example: "https://localhost:8904/api/interlock_groups/122322/enable"
+                    description: |
+                      [POST](#operation--api-interlock_groups--id--enable-post) to re-enable the
+                      interlock group, causing its doors to return to interlock behaviour.
+                    type: string
+                    format: url
+
+      - $ref: "#/definitions/Interlock Group summary"
 
 #######################################################################
 #######################################################################
@@ -1752,7 +1902,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/macros?skip=100"
+          href: "https://localhost:8904/api/macros?skip=1000"
 
   Macro summary:
     description: |
@@ -1831,7 +1981,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/outputs?skip=100"
+          href: "https://localhost:8904/api/outputs?skip=1000"
 
   Output summary:
     description: |
@@ -1961,7 +2111,7 @@ definitions:
         properties:
           href: { type: string, format: url }
         example:
-          href: "https://localhost:8904/api/schedules?skip=100"
+          href: "https://localhost:8904/api/schedules?skip=1000"
 
   Schedule summary:
     description: |
@@ -2186,6 +2336,17 @@ definitions:
           should cease.  The API will reject the override if the string is not empty and
           it cannot parse it into a date-time, but it will treat the override as having no
           end time if you mis-spell 'endTime' or if you send a blank string.
+
+          Command Centre computes an override's duration to a whole number of minutes with a minimum
+          of one.  That means that a timed override will always end at a multiple of sixty seconds
+          from the time the hardware receives the override request, which will be within thirty
+          seconds of the time you supplied here.  In versions older than 8.80, the discrepancy may
+          be up to a minute.
+
+          Careful observation of overrides submitted from the Configuration client and from the API
+          will reveal that they use different rounding methods.  Be assured, both result in
+          overrides ending within a minute of the requested time.
+
         example: "2018-07-31T00:00:00Z"
 
 ###################################################################################################
@@ -2198,10 +2359,8 @@ tags:
     These methods give you read access to Access Zones in the Command Centre database, and
     let you change their modes, lock them down, and send other overrides.
 
-    The first use case below introduces the main entry point.  It is a paginated search
-    interface that gives you very basic data for any number of access zones.  Most
-    important is a field called 'href', which gives location of one alarm zone's details
-    page.
+    The first use case below introduces the main entry point.  It is a paginated search interface
+    that gives any number of access zones, each containing the fields you ask for in the query.
 
     ### Overrides
 
@@ -2271,9 +2430,10 @@ tags:
 
     #### Searching for access zones by name
     1. `GET /api`.
-    2. Follow the link at `features.accessZones.accessZones.href`, appending a search term such as
-       `name=substring` to filter the access zones, and `fields` to tell the server what to return
-       about each.  The next section covers those query parameters.
+    2. Follow the link at `features.accessZones.accessZones.href`
+       [↪](#operation--api-access_zones-get), appending a search term such as `name=substring` to
+       filter the access zones, and `fields` to tell the server what to return about each.  The next
+       section covers those query parameters.
     3. Process the results, following the `next` link until there isn't one.
 
     #### Changing an access zone's access mode
@@ -2287,11 +2447,12 @@ tags:
 
     #### Finding an access zone's status
     1. Find the href for the access zone using the process above, and GET it.
-    3. Take the `updates` href from that page.  For a version 8.00 server append the query parameter
-       separator ('?' or '&') then `fields=defaults,zoneCount` if you need the zone count as well as
-       the default status fields.  The zone count is included by default in 8.10 and later.
+    3. Take the `updates` [↪](#operation--api-access_zones--id--updates-get) href from that page.  For a
+       version 8.00 server append the query parameter separator (`?` or `&`) then
+       `fields=defaults,zoneCount` if you need the zone count as well as the default status fields.
+       The zone count is included by default in 8.10 and later.
     4. GET it.
-    5. Use the flag rules above to interpret the statusFlags you receive.
+    5. Use the flag rules above to interpret the status flags you receive.
     5. Follow the `next` link to stay up to date.
 
 - name: "Alarm Zones"
@@ -2306,9 +2467,8 @@ tags:
     natural state.  That in turn means that you cannot override them for a duration --
     they have no state to return to.
 
-    The first use case below introduces the main entry point.  It is a paginated search
-    interface that gives you very basic data for any number of alarm zones.  The href
-    field gives location of an alarm zone's details page.
+    The first use case below introduces the main entry point.  It is a paginated search interface
+    that gives you any number of alarm zones, each containing the fields you ask for in the query.
 
     ### Overrides
     Note:
@@ -2355,23 +2515,26 @@ tags:
 
     #### Searching for alarm zones by name
     1. `GET /api`.
-    2. Follow the link at `features.alarmZones.alarmZones.href`, appending a search term such as
-       `name=substring` to filter the access zones, and `fields` to tell the server what to return
-       about each.  The next section covers those query parameters.
+    2. Follow the link at `features.alarmZones.alarmZones.href`
+       [↪](#operation--api-alarm_zones-get), appending a search term such as `name=substring` to
+       filter the access zones, and `fields` to tell the server what to return about each.  The next
+       section covers those query parameters.
     3. Process the results, following the `next` link until there isn't one.
 
     #### Changing an alarm zone's state
     1. Find the href for the alarm zone using the process above.
     2. GET it.
-    3. Find the API URL you require in the `commands` structure of the results, such as
-    `arm` or `disarm`, using [the detail](#definition-Alarm-Zone-detail).  Use the calls
-    with `Until` on the ends of their names if you are specifying an end time.
+    3. Find the API URL you require in the `commands` structure of the results, such as `arm`
+       [↪](#operation--api-alarm_zones--id--arm-post) or `disarm`
+       [↪](#operation--api-alarm_zones--id--disarm-post), using [the
+       detail](#definition-Alarm-Zone-detail).  Use the calls with `Until` on the ends of their
+       names if you are specifying an end time.
     4. POST to that URL.  All those with `Until` in their names require a JSON object in
     the body giving the time at which the override should end; the others do not.
 
     #### Finding an alarm zone's status
     1. Find the href for the alarm zone using the process above, and GET it.
-    3. Follow the `updates` href from that page.
+    3. Follow the `updates` [↪](#operation--api-alarm_zones--id--updates-get) href from that page.
     4. Use the flag rules above to interpret the status flags you receive.
     5. Follow the `next` link to stay up to date.
 
@@ -2400,10 +2563,9 @@ tags:
     These methods give you read access to basic data about Doors in the Command Centre
     database, and let you open them.
 
-    The first use case below introduces the main entry point.  It is a paginated search
-    interface that gives you very basic data for any number of doors.  The href field for
-    each door gives the location of another page which gives more details, including the
-    URL you need to open the door.
+    The first use case below introduces the main entry point.  It is a paginated search interface
+    that gives you any number of doors, each containing the fields you ask for in the query
+    (including, for example, the URLs to open them).
 
     ### Status flags
 
@@ -2449,8 +2611,8 @@ tags:
     #### Opening a Door
     1. Find the href for the door using the process above.
     2. GET it.
-    3. POST to the 'open' URL in the `commands` structure of the
-       [results](#definition-Door-detail).
+    3. POST to the `open` [↪](#operation--api-doors--id--open-post) URL in the `commands` structure
+       of the [results](#definition-Door-detail).
 
     #### Finding a door's status
     1. Find the href for the door  using the process above, and GET it.
@@ -2467,18 +2629,21 @@ tags:
     area the elevator system can arrange a car to take them to their favourite floor.
 
     Each elevator group only goes to certain floors, so to give a cardholder a default floor you
-    need to pick an elevator group see which floors it services.
+    need to see which floors each elevator group services.
 
     Command Centre represents floors with access zones.  If an elevator car has two doors, front and
     rear, it may service two access zones on the same physical floor.  A cardholder could pick
     either of those access zones as their default for that elevator group.
 
-    The main entry point is a paginated search that returns what you need to pick defaults for a
-    cardholder, limited by the privilege that enables that operation on a cardholder.  That is the
+    The main entry point is a paginated search that returns what you need to pick default floors for
+    a cardholder, limited by the privilege that enables that operation on a cardholder.  That is the
     call that you are most likely to need, but there is another that gives you all elevator groups
-    that your operator can view, rather than the ones your operator can use in a cardholder edit.
+    that your operator can view, rather than the smaller set of groups your operator can use in a
+    cardholder edit.
 
-    ### Use case: choosing and setting a cardholder's default floor
+    ### Use cases
+
+    ### Choosing and setting a cardholder's default floor
 
     Your client will first need to list all elevator groups, and the floors and access zones on
     those elevator groups, so that it can pick from them (if knows them by name already) or present
@@ -2492,7 +2657,8 @@ tags:
     1. `GET /api`.
     2. Follow the link at `features.cardholders.modifyPassengerDetails.href`, appending a search term
        such as `name=substring` to filter the selection if you have a lot of elevator groups.
-    3. Find the elevator group you are after, following the `next` link if necessary.
+    3. Find the elevator group you are after, following the `next` link if you have lots of elevator
+       groups.
     4. Look in the `floorAccess` array for the floor names and access zone names you can use for
        picking the floor, and the access zone hrefs to use in the
        [PATCH](cardholders.html#operation--api-cardholders--id--patch) coming up.
@@ -2505,14 +2671,13 @@ tags:
        elevator groups and access zones you wish to set as that cardholder's defaults.
 
 - name: "Fence Zones"
+
   description: |
     These methods give you read access to Fence Zones in the Command Centre database, and
     let you turn them on and off, change their modes, and shunt them.
 
-    The first use case below introduces the main entry point.  It is a paginated search
-    interface that gives you very basic data for any number of fence zones.  Most
-    important is a field called 'href', which gives location of one fence zone's details
-    page.
+    The first use case below introduces the main entry point.  It is a paginated search interface
+    that gives you any number of fence zones, each containing the fields you ask for in the query.
 
     ### Status flags
 
@@ -2561,9 +2726,10 @@ tags:
 
     #### Searching for fence zones by name
     1. `GET /api`.
-    2. Follow the link at `features.fenceZones.fenceZones.href`, appending a search term such as
-       `name=substring` to filter the fence zones, and `fields` to tell the server what to return
-       about each.  The next section covers those query parameters.
+    2. Follow the link at `features.fenceZones.fenceZones.href`
+       [↪](#operation--api-fence_zones-get), appending a search term such as `name=substring` to
+       filter the fence zones, and `fields` to tell the server what to return about each.  The next
+       section covers those query parameters.
     3. Process the results, following the `next` link until there isn't one.
 
     #### Overriding a fence zone
@@ -2575,9 +2741,10 @@ tags:
 
     #### Finding a fence zone's status
     1. Find the href for the fence zone using the process above, and GET it.
-    3. Take the `updates` href from that page.  For a version 8.00 server append
-       `?fields=defaults,voltage` if you are after the fence's voltage.  It is included by default
-       in 8.10 and later.
+    3. Take the `updates` [↪](#operation--api-fence_zones--id--updates-get) href from that page.  If
+       you are after the fence's voltage and are using version 8.00, append
+       `fields=defaults,voltage` (after a `?` or `&`).  You do not need that for later versions as
+       `voltage` became a default field in 8.10.
     4. GET it.
     4. Use the flag rules above to interpret the status flags you receive.
     5. Follow the `next` link to stay up to date.
@@ -2587,9 +2754,8 @@ tags:
     These methods, introduced in v8.10, give you read and override access to Input items.
 
     The first use case below introduces the main entry point.  It is a paginated search interface
-    that gives you basic data for any number of inputs.  The href field for each input gives the
-    location of another page which gives more details, including the URLs you need to shunt or
-    isolate it.
+    that gives you any number of inputs, each containing the fields you ask for in the query.  You
+    can, for instance, ask for the URLs you need to shunt or isolate an input.
 
     ### Status flags
 
@@ -2638,16 +2804,74 @@ tags:
     #### Overriding an Input
     1. Find the href for the input using the process above.
     2. GET it.
-    3. Find the API URL to for the override you need in the `commands` structure of the
+    3. Find the API URL for the override you need in the `commands` structure of the
        [results](#definition-Input-detail).
     4. POST to that URL with an empty body.
 
     #### Finding an input's status
     1. Find the href for the input using the process above, and GET it.
+    3. Take the `updates` [↪](#operation--api-inputs--id--updates-get) href from that page.
+    4. GET it.
+    4. Use the flag rules above to interpret the status flags you receive.
+    5. Follow the `next` link to stay up to date.
+
+- name: "Interlock Groups"
+  description: |-
+    These methods, yet to be released, will give you read access to Interlock Group items.
+
+    **API support for interlocks is still in development and may change in future versions.**
+
+    The first use case below introduces the main entry point.  It is a paginated search interface
+    that gives you any number of interlock groups, each containing the fields you ask for in the
+    query.  You can, for instance, ask for the IDs you need to monitor their status.
+
+    ### Status flags
+
+    If an interlock is not in an error state it will return one flag out of the following set:
+
+    - `secure` means the interlock items are closed and the door/s will open to a badge.  This is
+      probably where an interlock group spends most of its time.
+
+    - `open` means the interlock's doors will not open because at least one of the other items in
+      the group already is.  This is a normal state after someone gains access at an interlock door.
+      It will last until the door closes.
+
+    - `overridden` means the interlock group has received a disable override.  Doors will open as
+      normal.
+
+    - `forced` means that the interlock rules have been breached.  This could be because someone
+      forced a door or used an emergency release while another was already open.
+
+    To establish if the input is in a completely normal state look for 'secure' or 'open'.
+
+    ### Use cases
+
+    #### Listing Interlock Groups
+    1. `GET /api`.
+    2. Follow the link at `features.interlockGroups.interlockGroups.href`, appending a search term
+       such as `name=substring` to select the interlocks, `top` if you expect lots of them, and
+       `fields` to tell the server what to return about each.  The next section covers those query
+       parameters.
+    3. Process the results, following the `next` link if there is one.
+
+    #### Finding the status of many items including an interlock group
+    1. Find the IDs of all the items you're interested in, including the interlock group, by
+       searching for them with a query parameter appended such as `fields=name,id`.
+    2. Create a [status subscription](events.html#status-subscriptions) for those items.
+
+    #### Finding the status of an interlock group
+    1. Find the href for the interlock using the process above, and GET it.
     3. Take the `updates` href from that page.
     4. GET it.
     4. Use the flag rules above to interpret the status flags you receive.
     5. Follow the `next` link to stay up to date.
+
+    #### Overriding an Interlock Group
+    1. Find the href for the interlock using the process above.
+    2. GET it.
+    3. Find the API URL for the override you need (disable or re-enable) in the `commands` structure
+       of the [results](#definition-Interlock-Group-detail).
+    4. POST to that URL with an empty body.
 
 - name: "Macros"
   description: |
@@ -2657,10 +2881,9 @@ tags:
     Reading the section 'Understanding Macros' in the Configuration client help is an
     excellent way to do exactly that.
 
-    The first use case below introduces the main entry point.  It is a paginated search
-    interface that gives you very basic data for any number of macros.  The href field for
-    each macro gives the location of another page which gives more details, including the
-    URL you need to run the macro.
+    The first use case below introduces the main entry point.  It is a paginated search interface
+    that gives you any number of macros, each containing the fields you ask for in the query,
+    including (for example) the URL you need to run the macro.
 
     ### Overrides
 
@@ -2671,26 +2894,26 @@ tags:
 
     #### Listing Macros
     1. `GET /api`.
-    2. Follow the link at `features.macros.macros.href`, appending a search term
-       (described below) to narrow the results if your
-       installation has a lot of macros.
+    2. Follow the link at `features.macros.macros.href`
+       [↪](#operation--api-macros-get), appending a search term (described below) to
+       narrow the results if your installation has a lot of macros.
     3. Process the results, following the `next` link until there isn't one.
 
     #### Running a Macro
     1. Find the href for the macro using the process above.
     2. GET it.
     4. If your operator is able to run the macro, the results will contain a URL at
-       `commands.run.href`.  POST to that to run the macro - no body required.
+       `commands.run.href`.  [POST](#operation--api-macros--id--run-post) to that to run the macro -
+       no body required.
 
 - name: "Outputs"
   description: |-
     These methods give you read access to Outputs in the Command Centre
     database, and let you override them.
 
-    The first use case below introduces the main entry point.  It is a paginated search
-    interface that gives you very basic data for any number of outputs.  The href field for
-    each output gives the location of another page which gives more details, including the
-    URL you need to switch the output.
+    The first use case below introduces the main entry point.  It is a paginated search interface
+    that gives you any number of outputs, each containing the fields you ask for in the query,
+    including (for example) the URLs you need to switch the outputs on and off.
 
     ### Override times
 
@@ -2732,24 +2955,23 @@ tags:
 
     #### Listing Outputs
     1. `GET /api`.
-    2. Follow the link at `features.outputs.outputs.href`, appending a search term such as
-       `name=substring` to select the outputs, and `fields` to tell the server what to return about
-       each.  The next section covers those query parameters.
+    2. Follow the link at `features.outputs.outputs.href` [↪](#operation--api-outputs-get),
+       appending a search term such as `name=substring` to select the outputs, and `fields` to tell
+       the server what to return about each.  The next section covers those query parameters.
     3. Process the results, following the `next` link until there isn't one.
 
     #### Switching an Output
     1. Find the href for the output using the process above.
     2. GET it.
-    3. Find the API URL to turn the output on, off, or cancel a previous override in the
-       `commands` structure of the [results](#definition-Output-detail).  Use the
-       `until` variants if you are specifying an end time.
+    3. Look in the `commands` structure of the [results](#definition-Output-detail) to find the API
+       URLs that turn the output on, off, or cancel a previous override.  Use the `until` variants
+       if you want to specify an end time.
     4. POST to that URL.  Those with `until` in their command block keys require a JSON
        object in the body; the others expect it empty.
 
     #### Finding an output's status
     1. Find the href for the output using the process above, and GET it.
-    3. Take the `updates` href from that page.  Append '?' or '&' (whichever is appropriate) then
-       `fields=defaults,voltage` if you are after the fence's voltage.
+    3. Take the `updates` [↪](#operation--api-outputs--id--updates-get) href from that page.
     4. GET it.
     4. Use the flag rules above to interpret the status flags you receive.
     5. Follow the `next` link to stay up to date.
@@ -2786,9 +3008,9 @@ paths:
       description: |
         This returns a summary of the access zones matching your search criteria.
 
-        The result will contain no more than 100 access zones, or as many as you asked for more in
-        your request; you should follow the `next` link, if it is present, to collect the next
-        batch.
+        The result will contain no more than 100 or 1000 access zones (depending on your version),
+        or as many as you asked for more in your request; you should follow the `next` link, if it
+        is present, to collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         access zones, such as 'View Site', 'Edit Site', or 'Override'.  Perhaps there are no access
@@ -2826,18 +3048,18 @@ paths:
       summary: Search targetable access zones
       description: |
         This returns a list of the access zones to which your operator is allowed to move
-        cardholders, and a special zone you can use as a target to move a cardholder from all access
+        cardholders, and a special zone you can use as a target to remove a cardholder from all access
         zones.
 
         Like all other paginated queries in this API, the result will contain no more than 100
-        access zones, or as many as you asked for more in your request; you should follow the `next`
-        link, if it is present, to collect the next batch.
-
-        If your result set is empty it means there are no access zones in the divisions in which
-        your operator has the privilege to move cardholders, 'Manage Cardholder Location', or your
-        operator does not have it at all.
+        or 1000 access zones (depending on your version), or as many as you asked for more in your
+        request; you should follow the `next` link, if it is present, to collect the next batch.
 
         When you have loaded them all there will be no `next` link.
+
+        If your result set is empty it means there are no access zones in the divisions in which
+        your operator has the privilege to move cardholders ('Manage Cardholder Location'), or your
+        operator does not have the privilege at all.
 
         Take this URL from the 'href' field in the `features.cardholders.updateLocationAccessZones`
         section of `/api`.
@@ -2906,6 +3128,7 @@ paths:
         next scheduled change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -2930,6 +3153,7 @@ paths:
         next scheduled change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -2955,6 +3179,7 @@ paths:
         next scheduled change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: body_names_not_rendered
         description: Optional
@@ -2981,6 +3206,7 @@ paths:
         next scheduled change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: body_names_not_rendered
         description: Optional
@@ -2997,7 +3223,9 @@ paths:
       description: |
         Sends an override to an access zone to forgive anti-passback for all cardholders in the zone.
 
-      parameters: [{in: path, name: id, required: true, description: "The ID of the access zone.", type: string}]
+      parameters:
+      - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403accesszoneoverride" }
@@ -3012,7 +3240,9 @@ paths:
 
         It takes no parameters.  The lockdown will remain in place until cancelled, or the access
         zone receives an override to another mode.
-      parameters: [{in: path, name: id, required: true, description: "The ID of the access zone.", type: string}]
+      parameters:
+      - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403accesszoneoverride" }
@@ -3025,7 +3255,9 @@ paths:
         Cancels a lockdown, returning it to its scheduled state.  It will not cancel any other kind
         of override.
 
-      parameters: [{in: path, name: id, required: true, description: "The ID of the access zone.", type: string}]
+      parameters:
+      - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403accesszoneoverride" }
@@ -3039,6 +3271,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: body
         required: true
@@ -3065,6 +3298,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the access zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
 
       responses:
         204: { description: Success. }
@@ -3111,7 +3345,9 @@ paths:
             }
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            8.50 and earlier:  the site does not have the RESTStatus licence.
+
+            8.60 and later:  the site has neither the RESTStatus nor RESTOverrides licence.
         404: {$ref: "#responses/404accesszone"}
 
 ######################################################################
@@ -3124,9 +3360,9 @@ paths:
       description: |
         This returns a summary of the alarm zones matching your search criteria.
 
-        The result will contain no more than 100 alarm zones, or as many as you asked for more in
-        your request; you should follow the `next` link, if it is present, to collect the next
-        batch.
+        The result will contain no more than 100 or 1000 alarm zones (depending on your version), or
+        as many as you asked for more in your request; you should follow the `next` link, if it is
+        present, to collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         alarm zones, such as 'View Site', 'Edit Site', or 'Override'.  Perhaps there are no alarm
@@ -3201,6 +3437,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the alarm zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -3225,6 +3462,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the alarm zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -3249,6 +3487,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the alarm zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -3274,6 +3513,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the alarm zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -3298,6 +3538,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the alarm zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -3322,6 +3563,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the alarm zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -3340,6 +3582,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the alarm zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403alarmzoneoverride" }
@@ -3395,10 +3638,10 @@ paths:
       description: |
         This returns the day categories that match your search criteria.
 
-        The result will contain no more than 100, or as many as you asked for more in your request;
-        you should follow the `next` link, if it is present, to collect the next batch.  Generally a
-        site does not have too many day categories, so if you set `top=1000` you are bound to
-        collect them all.
+        The result will contain no more than 100 or 1000 (depending on your version), or as many as
+        you asked for more in your request; you should follow the `next` link, if it is present, to
+        collect the next batch.  Generally a site does not have too many day categories, so if you
+        set `top=1000` you are bound to collect them all.
 
         If your result set is empty it means your operator does not have any of the privileges that
         allow viewing day categories, such as 'View Site', 'Configure Site', or 'Edit Schedules'.
@@ -3443,9 +3686,9 @@ paths:
       description: |
         This returns a summary of the doors matching your search criteria.
 
-        The result will contain no more than 100 doors, or as many as you asked for more in
-        your request; you should follow the `next` link, if it is present, to collect the next
-        batch.
+        The result will contain no more than 100 or 1000 doors (depending on your version), or as
+        many as you asked for more in your request; you should follow the `next` link, if it is
+        present, to collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         doors, such as 'View Site', 'Edit Site', or 'Override - Open Door'.  Perhaps there are no
@@ -3514,6 +3757,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the door.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403dooroverride" }
@@ -3574,8 +3818,9 @@ paths:
 
         Unlike most of the other calls in this document, it requires the RESTCardholders licence.
 
-        The result will contain no more than 100, or as many as you asked for more in your request;
-        you should follow the `next` link, if it is present, to collect the next batch.
+        The result will contain no more than 100 or 1000 depending on your version, or as many as
+        you asked for more in your request; you should follow the `next` link, if it is present, to
+        collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to assign
         elevator groups to cardholders ('Modify Passenger Details').  Perhaps there are no elevator
@@ -3629,8 +3874,9 @@ paths:
         the groups you need.  If your goal is to set cardholders' default floors, you should that
         call instead.
 
-        The result will contain no more than 100, or as many as you asked for more in your request;
-        you should follow the `next` link, if it is present, to collect the next batch.
+        The result will contain no more than 100 or 1000 (depending on your version), or as many as
+        you asked for more in your request; you should follow the `next` link, if it is present, to
+        collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         elevator groups, such as 'View Site' or 'Edit Site'.  Perhaps there are no elevator groups
@@ -3668,7 +3914,7 @@ paths:
                   href:
                     type: string
                     format: url
-                    example: "https://localhost:8904/api/elevator_groups?skip=100"
+                    example: "https://localhost:8904/api/elevator_groups?skip=1000"
         403:
           description: |
             The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
@@ -3700,7 +3946,8 @@ paths:
           schema: {$ref: '#/definitions/Elevator Group detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            The site does not have the RESTCardholders or RESTStatus or (in 8.60 or later) the
+            RESTOverrides licence.
         404:
           description: |
             The request's URL does not represent an elevator group, or the operator does not have a
@@ -3716,11 +3963,11 @@ paths:
       description: |
         This returns a summary of the fence zones matching your search criteria.
 
-        The result will contain no more than 100 fence zones, or as many as you asked for more in
-        your request; you should follow the `next` link, if it is present, to collect the next
-        batch.
+        The result will contain no more than 100 or 1000 fence zones (depending on your version), or
+        as many as you asked for more in your request; you should follow the `next` link, if it is
+        present, to collect the next batch.
 
-        If your result set is empty it means your operator does not have the privilege to view any
+        If your result set is empty it means your operator does not have a privilege that allows viewing
         fence zones, such as 'View Site', 'Edit Site', or 'Maintenance Override'.  Perhaps there are
         no fence zones in the divisions in which your operator has privileges, or your operator has
         no privileges at all.
@@ -3787,6 +4034,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the fence zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403fencezoneoverride" }
@@ -3800,6 +4048,7 @@ paths:
         manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the fence zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403fencezoneoverride" }
@@ -3813,6 +4062,7 @@ paths:
         communication with it.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the fence zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403fencezoneoverride" }
@@ -3825,6 +4075,7 @@ paths:
         Sends an override to an alarm zone to unshunt it, re-enabling its communication.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the fence zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403fencezoneoverride" }
@@ -3838,6 +4089,7 @@ paths:
         next scheduled or manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the fence zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403fencezoneoverride" }
@@ -3851,6 +4103,7 @@ paths:
         next scheduled or manual change.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the fence zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403fencezoneoverride" }
@@ -3864,6 +4117,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the fence zone.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403fencezoneoverride" }
@@ -3921,9 +4175,9 @@ paths:
       description: |
         This returns a summary of the inputs matching your search criteria.
 
-        The result will contain no more than 100 inputs, or as many as you asked for more in
-        your request; you should follow the `next` link, if it is present, to collect the next
-        batch.
+        The result will contain no more than 100 or 1000 inputs (depending on your version), or as
+        many as you asked for more in your request; you should follow the `next` link, if it is
+        present, to collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         inputs, such as 'View Site', 'Edit Site', or 'Maintenance Override'.  Perhaps there are no
@@ -3992,6 +4246,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the input.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403inputoverride" }
@@ -4005,6 +4260,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the input.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403inputoverride" }
@@ -4019,6 +4275,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the input.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403inputoverride" }
@@ -4032,6 +4289,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the input.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403inputoverride" }
@@ -4080,6 +4338,166 @@ paths:
         404: {$ref: "#responses/404input"}
 
 ######################################################################
+  /api/interlock_groups:
+    get:
+      tags:
+        - "Interlock Groups"
+      summary: Search interlock groups
+      description: |
+
+        **Not yet available.  API support for interlocks is still in development and may change in
+        future versions.**
+
+        This returns a summary of the interlock groups matching your search criteria.
+
+        The result will contain no more than 100 or 1000 interlock groups (depending on your
+        version), or as many as you asked for more in your request; you should follow the `next`
+        link, if it is present, to collect the next batch.
+
+        If your result set is empty it means your operator does not have the privilege to view any
+        interlock groups such as 'View Site', 'Edit Site', or 'Maintenance Override'.  Perhaps there
+        are no interlock groups in the divisions in which your operator has privileges, or your
+        operator has no privileges at all.
+
+        When you have loaded them all there will be no `next` link.
+
+        Take this URL from the 'href' field in the `features.interlockGroups.interlockGroups`
+        section of `/api`.
+
+      parameters:
+      - $ref: "cardholdersApi.yaml#/parameters/sort"
+      - $ref: "cardholdersApi.yaml#/parameters/top"
+      - $ref: "cardholdersApi.yaml#/parameters/name"
+      - $ref: "cardholdersApi.yaml#/parameters/division"
+      - $ref: "cardholdersApi.yaml#/parameters/description"
+      - name: "fields"
+        <<: *FIELDSDESC_SUM_810
+        <<: *INTERLOCKFIELDS
+
+      responses:
+        200:
+          description: |
+            Success.  See the note in the description about privileges if your result set is empty.
+          schema: {$ref: '#/definitions/Interlock Group search'}
+        403:
+          description: |
+            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+
+  /api/interlock_groups/{id}:
+    get:
+      tags:
+        - "Interlock Groups"
+      summary: Get details of an interlock group
+      description: |
+        **Not yet available.  API support for interlocks is still in development and may change in
+        future versions.**
+
+        This returns the detail of one interlock group.
+
+        Follow the 'href' field in an [interlock group summary](#definition-Interlock-Group-summary)
+        to get here.
+
+      parameters:
+      - name: "id"
+        in: path
+        required: true
+        type: string
+        description: The ID of the interlock group.
+      - name: "fields"
+        <<: *FIELDSDESC_DET_810
+        <<: *INTERLOCKFIELDS
+
+      responses:
+        200:
+          description: Success.
+          schema: {$ref: '#/definitions/Interlock Group detail'}
+        403:
+          description: |
+            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+        404: {$ref: "#responses/404interlock"}
+
+  /api/interlock_groups/{id}/disable:
+    post:
+      tags: ["Interlock Groups"]
+      summary: Disable an interlock group.
+      description: |
+        **Not yet available.  API support for interlocks is still in development and may change in
+        future versions.**
+
+        Sends an override to disable an interlock group, allowing all doors to act independently.
+
+      parameters:
+      - {in: path, name: id, required: true, description: "The ID of the interlock group.",
+         type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
+      responses:
+        204: { description: Success. }
+        403: { $ref: "#/responses/403interlockoverride" }
+
+  /api/interlock_groups/{id}/enable:
+    post:
+      tags: ["Interlock Groups"]
+      summary: Re-enable an interlock group.
+      description: |
+        **Not yet available.  API support for interlocks is still in development and may change in
+        future versions.**
+
+        Cancels the disabling override on an interlock group, causing the doors to return to
+        interlocking behaviour.
+
+      parameters:
+      - {in: path, name: id, required: true, description: "The ID of the interlock group.",
+         type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
+      responses:
+        204: { description: Success. }
+        403: { $ref: "#/responses/403interlockoverride" }
+
+  /api/interlock_groups/{id}/updates:
+    get:
+      tags: ["Interlock Groups"]
+      summary: Monitor an interlock group.
+      description: |
+        **Not yet available.  API support for interlocks is still in development and may change in
+        future versions.**
+
+        See the [item status topic](#topic-Item-status) for how to use the updates APIs.
+
+        Note that this API call is good for watching one item only; if you want to monitor several,
+        you are better off with a [status subscription](events.html#status-subscriptions).
+
+        Follow the 'updates' field in an interlock group
+        [summary](#definition-Interlock-Group-summary) or
+        [details](#definition-Interlock-Group-detail) pages to get here.
+
+      parameters:
+      - name: "id"
+        in: path
+        required: true
+        type: string
+        description: The ID of the interlock group.
+      - name: "fields"
+        <<: *UPDFIELDS
+        <<: *UPDFIELDSENUM
+
+      responses:
+        200:
+          description: |
+            Success.  See the [introduction](#tag-Interlock-Groups) for a description of the status
+            fields.
+          schema:
+            example: {
+              updates: {
+                statusFlags: [ open ]
+              },
+              next: { href: https://localhost:8904/api/interlock_groups/122322/updates/9_1 }
+            }
+        403:
+          description: |
+            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+        404: {$ref: "#responses/404interlock"}
+
+######################################################################
   /api/macros:
     get:
       tags:
@@ -4088,9 +4506,9 @@ paths:
       description: |
         This returns a summary of the macros matching your search criteria.
 
-        The result will contain no more than 100 macros, or as many as you asked for more in
-        your request; you should follow the `next` link, if it is present, to collect the next
-        batch.
+        The result will contain no more than 100 or 1000 macros (depending on your version), or as
+        many as you asked for more in your request; you should follow the `next` link, if it is
+        present, to collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         macros, such as 'View Site', 'Run Macros', or 'Schedule and Run Macros'.  Perhaps there are
@@ -4157,6 +4575,7 @@ paths:
         Sends a run request to a macro.
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the macro.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403macrooverride" }
@@ -4170,9 +4589,9 @@ paths:
       description: |
         This returns a summary of the outputs matching your search criteria.
 
-        The result will contain no more than 100 outputs, or as many as you asked for more in
-        your request; you should follow the `next` link, if it is present, to collect the next
-        batch.
+        The result will contain no more than 100 or 1000 outputs (depending on your version), or as
+        many as you asked for more in your request; you should follow the `next` link, if it is
+        present, to collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view any
         outputs, such as 'View Site', 'Edit Site', or 'Override'.  Perhaps there are no outputs in
@@ -4244,6 +4663,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the output.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -4272,8 +4692,10 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the output.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
+        400: { description: The output is not configured for pulsing (8.70 and later only). }
         403: { $ref: "#/responses/403outputoverride" }
 
   /api/outputs/{id}/off:
@@ -4288,6 +4710,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the output.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       - in: body
         name: ignored
         description: Optional
@@ -4306,6 +4729,7 @@ paths:
 
       parameters:
       - {in: path, name: id, required: true, description: "The ID of the output.", type: string}
+      - $ref: "cardholdersApi.yaml#/parameters/requested_by"
       responses:
         204: { description: Success. }
         403: { $ref: "#/responses/403outputoverride" }
@@ -4362,8 +4786,9 @@ paths:
       description: |
         This returns a summary of the schedules matching your search criteria.
 
-        The result will contain no more than 100, or as many as you asked for more in your request;
-        you should follow the `next` link, if it is present, to collect the next batch.
+        The result will contain no more than 100 or 1000, depending on your version, or as many as
+        you asked for more in your request; you should follow the `next` link, if it is present, to
+        collect the next batch.
 
         If your result set is empty it means your operator does not have the privilege to view
         schedules, such as 'View Schedules', 'Edit Schedules', or 'Schedule Access Zone'.  Perhaps
@@ -4558,6 +4983,10 @@ responses:
     description: |
       The site does not have the RESTOverrides licence (in which case the body of the result will
       say so), or the operator does not have the 'Maintenance Override' privilege.
+  403interlockoverride:
+    description: |
+      The site does not have the RESTOverrides licence (in which case the body of the result will
+      say so), or the operator does not have the 'Override' privilege.
   403macrooverride:
     description: |
       The site does not have the RESTOverrides licence (in which case the body of the result will
@@ -4589,6 +5018,11 @@ responses:
       The request's URL does not represent an input, or the operator does not have a privilege on
       the input's division that allows viewing inputs, such as 'View Site', 'Edit Site', or
       'Maintenance Override'."
+  404interlock:
+    description: |
+      The request's URL does not represent an interlock or the operator does not have a privilege on
+      the interlock's division that allows viewing interlocks, such as 'View Site', 'Edit Site', or
+      'Override'."
   404macro:
     description: |
       The request's URL does not represent a macro, or the operator does not have a privilege on the

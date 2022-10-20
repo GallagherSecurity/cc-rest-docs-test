@@ -1,8 +1,8 @@
-= Work in progress: Command Centre REST API training material
+= Command Centre REST API training material
 :toc: left
 :source-highlighter: rouge
 // highlighters are coderay highlight.js Pygments rouge.  Asciidoctor ships with highlight.js, but
-// gihub pages (Jeyll) uses Rouge.  Install it with 'gem install rouge'.
+// gihub pages (Jekyll) uses Rouge.  Install it with 'gem install rouge'.
 
 // Practically all examples are json
 :source-language: json-doc
@@ -18,12 +18,23 @@
 // :sectanchors:
 :sectlinks:
 
-This document will be an AsciiDoc port of a document used internally at Gallagher Group to train
-developers in the use of Command Centre’s REST API. This version is not yet suitable for
-publication, but if you are using the REST API and like the sound of 60-odd more pages of reading
-material, please contact Gallagher through your channel partner and talk to our Technical Support
-Engineers about your project.
 
+// Editors, please stick to a maximum line length of 100.
+
+[.lead]
+WORK IN PROGRESS.
+
+This document is an AsciiDoc port of a document used internally at Gallagher Group to train
+developers in the use of Command Centre’s REST API. This version is not yet suitable for
+publication, but if you are using the REST API, and like the sound of 60-odd more pages of reading
+material, and are tolerant of casual language and a choppy structure meant to help a live speaker
+keep the attention of a room of developers, please continue.
+
+Also, please contact Gallagher through your channel partner and talk to our Technical Support
+Engineers about your project, because we are eager to help you make your integration the best it
+can be.
+
+// float:  not in the section hierarchy, and so not in the table of contents
 [float]
 == Disclaimer
 
@@ -91,8 +102,8 @@ It uses the following styles for guided examples:
 `This style` indicates filenames, URLs, and text that benefits from vertical alignment.
 
 ....
-Fixed-width blocks are client requests that you can copy out for your own work and server responses,
-pretty-printed a little to make them readable.
+Fixed-width blocks are client requests that you can copy out for your own work,
+and server responses, pretty-printed a little to make them readable.
 ....
 
 
@@ -104,13 +115,35 @@ the developer documentation.
 
 Nor does it cover some of the features added after v7.90: access zones,
 alarm zones, fence zones, doors, outputs, inputs, PDF definitions,
-macros, changing cardholder zones, operators, visitors, schedules, and
-subscribing to cardholder updates.
+and macros.  Moving cardholder between access zones, operators, visitors,
+schedules, and elevator groups.  Subscribing to cardholder updates, an
+efficient way of monitoring large numbers of items, and PII redactions.
+
+== Start here
+
+Do you want to learn the bare minimum about Command Centre (Gallagher's access control product) to
+get you started on an integration?  Read <<_useful_background>>.
+
+Do you want to set up Command Centre and try out its API from a REST client?  Read
+<<_training_setup>>.
+
+Do you want to learn something about HTTP queries in general?  <<_http_requests>> will help.
+
+Do you need an introduction to how HTTPS uses certificates?
+<<_authentication_and_encryption_certificates>> is for you.
+
+Do you want to use client-side certificates to authenticate your client?  Very wise.
+<<_client_side_certificates>> has what you need.
+
+Are you more concerned about the security of the API?  Look in <<_the_request_process>> for how the
+server authenticates and authorises requests in general, <<_client_side_certificates>> for how it
+can use certificates to authenticate clients, <<_notes_for_penetration_testers>> for a mini-FAQ
+on pen test findings, and <<_the_api_gateway>> for deep technical information on the API gateway in the cloud.
 
 == References
 
-This document refers to API documentation, online help, and sample code.
-All are on the Command Centre ISO (or DVD, if you have physical media).
+This document refers to API documentation on github and the online help and sample code
+on the Command Centre ISO (or DVD, if you have physical media).
 
 === Developer API documentation
 
@@ -120,9 +153,7 @@ aims to be complete, and you should have it on hand whenever developing
 against Command Centre. However the amount of detail can be daunting and
 it is not very introductory, which is why this document exists.
 
-The reference documentation comprises five HTML files:
-
-* `index.html` gives links to the other four;
+That reference documentation is in four sections:
 
 * `cardholders.html` describes the cardholder API calls and supporting concepts, such as card types,
 access groups, PDFs, roles, and competencies. These functions were new to 7.90. 8.30 added a
@@ -134,8 +165,8 @@ cardholder change-tracking API;
 the ability to create your own events;
 
 * `rest.html` covers Command Centre items that are not cardholders, alarms, or events: alarm zones,
-access zones, fence zones, outputs, doors, and macros arrived in 8.00, and inputs in 8.10. 8.30
-added a way to mass-monitor items.
+  access zones, fence zones, outputs, doors, and macros arrived in 8.00, and inputs in 8.10. 8.30
+  added a way to mass-monitor items.  Schedules and elevator groups arrived later still.
 
 We are always improving the content so it is best read online, but if you need an offline copy you
 can download a ZIP from https://github.com/GallagherSecurity/cc-rest-docs.  The documentation is no
@@ -146,22 +177,26 @@ Javascript, and `file:` URLs on network shares prevents the HTML rendering
 properly so if those files look goofy to you, try a different browser or
 copy the folder to your local drive. Or read it online.
 
-=== Online help and other documents
+=== API gateway technical paper
+
+If you are thinking of using <<_the_api_gateway>> this document will get you started, but if you are
+after a deeper understanding:
+
+https://gallaghersecurity.github.io/docs/Command%20Centre%20Cloud%20Api%20Gateway%20TIP.pdf
+
+=== On the DVD
 
 The Configuration Client’s Help menu opens a CHM file that you can also
 find in the ISO at
-`Setup\Program Files\Gallagher\Command Centre\Bin\Resources\en`. There
+`Setup\Program Files\Gallagher\Command Centre\Client\Resources\en`
+or `Setup\Program Files\Gallagher\Command Centre\Bin\Resources\en`. There
 is a PDF version, split into three volumes, on the ISO in the
 Documentation folder.
 
 The Command Centre hardening guide, also on the ISO, is required reading
 for security-conscious sites. While you may not be able to follow its
-leading advice regarding the REST API (`leave it turned off') there is
+leading advice regarding the REST API ("leave it turned off") there is
 plenty more in there to be aware of.
-
-If you are interested in the security of the REST API, look in <<_the_request_process>> for how the
-server authenticates and authorises requests in general, and <<_client_side_certificates>> for how
-it authenticates clients using certificates.
 
 === Sample code
 
@@ -171,10 +206,15 @@ Visual Studio solution.
 
 === Abbreviations
 
-PDF:: Personal Data Field. Not Adobe’s kind of PDF. In Gallagher’s defence, these PDFs predate
+AWS:: Amazon's cloud.
+
+CC:: Command Centre, Gallagher's access control product.
+
+PDF:: Personal Data Field. Not Adobe’s kind. In Gallagher’s defence, these PDFs predate
 Adobe’s.
 
-CC:: Command Centre.
+PII:: Personal Identifiable Information.  Any information in Command Centre's database concerning a
+person, including names, PDFs, movement events, group memberships, roles, competencies, etc.
 
 == Training setup
 
@@ -191,13 +231,16 @@ If you wish to try the REST API for yourself, you will require:
 * (Recommended) the sample REST client application from the Command Centre installation media (8.10
   onward).
 
-* (Optional) the https://postman.com[Postman] installer, or access to it on the internet.
+* (Optional) the https://postman.com[Postman] installer, or access to it on the internet.  Any REST
+  client will do, but this document shows how to set up Postman.
 
-* (Optional) Chrome and access to the internet for two extensions.
+* (Optional) Chrome and access to the internet for two extensions.  Chrome can be easier to use than
+  Postman, in some cases.  Again, any web browser will do, but this document shows how to set up
+  Chrome.
 
 * (Optional) wget or curl, two command-line utilities commonly found on non-Windows systems.
 
-* The link:..[API developer documentation].
+* The link:../ref[API developer documentation].
 
 == Useful background
 
@@ -218,7 +261,7 @@ system. You are about to create one of these.
 
 === Operators and operator groups
 
-Operators are cardholders with benefits. They become operators through
+Operators are cardholders with benefits. Cardholders become operators through
 membership of one or more operator groups. An operator group bestows
 privileges on its members, including the ability to log in to the
 Command Centre thick clients or run REST queries.
@@ -229,7 +272,7 @@ operator group while setting up a REST client. Operator groups came to the API i
 
 === Access groups
 
-Cardholders can be members of any number of access groups. An access
+Cardholders can be members of any number of _access groups_. An access
 group can be a member of one other:  its parent. Command Centre considers
 a member of a group to be a member of all the groups up its parenting
 line, as you would expect.
@@ -239,7 +282,7 @@ open a door, so every cardholder that represents a person should have
 group memberships. (Footnote: there are exceptions of course. Some
 visitors, for example, do not need to open doors, but they exist in CC
 so that it can record their location as they move around the site with
-their host.)
+an escort opening doors for them.)
 
 A cardholder can have many memberships of the same group. This is useful
 because each has its own start and end times. Past memberships fade
@@ -253,9 +296,9 @@ have personal data, next.
 
 === Personal data fields (PDFs)
 
-A Personal Data Field is an item that adds a custom value to a
+A Personal Data Field adds a custom value to a
 cardholder. Each PDF has a type (text, image, numeric, date, telephone
-number, email address…) and optional constraints on the values that it
+number, email address, …) and optional constraints on the values that it
 can hold. For example, text, email, and telephone number types can have
 a regular expression attached which a new value must match before
 Command Centre will accept it. A date can have a maximum and a minimum.
@@ -276,15 +319,17 @@ just like direct members).
 
 The REST API allows you to manage a cardholder’s group memberships (so
 that he or she has the PDF) as well as see and set PDF values. It does
-not let you see or change the configuration of the PDF item.
+not let you change the configuration of the PDF itself.
+
+Whenever this file or the API's reference documentation uses the term 'PDF' it means a personal data
+field.
 
 === Divisions
 
-Every item in the API is in a division (footnote: except day categories.
-They are divisionless). Divisions are arranged in a tree: each has
-exactly one parent, aside from the root division, which has none. An
-operator group specifies the roots of the division trees to which it
-grants privileges.
+Every item in the API--we will get to items in a moment--is in a _division_ (footnote: except day
+categories.  They are divisionless). Divisions are arranged in a tree: each has exactly one parent,
+aside from the root division, which has none. An operator group specifies the roots of the division
+trees to which it grants privileges.
 
 Therefore an operator with privileges on the root division has those
 privileges on all that server’s objects.
@@ -303,34 +348,57 @@ Client shows the division of any item in the 'General' tab of its
 property page. The REST API shows it in the 'division' field.
 
 IMPORTANT: *The operator’s division and his or her operator groups' divisions in the 'General' tabs
-are irrelevant*. The operator group grants privileges on the divisions in the 'Divisions' tab.
+are irrelevant* to privileges. The operator group grants privileges on the divisions in the
+'Divisions' tab.
+
+There is a small section on link:#_operator_privileges[operator privileges] below.
+
+=== Access zones
+
+An _access zone_ represents a physical area with Gallagher-controlled doors
+on its perimeter.  Something like a room.
+
+An access zone can be open or secure.  If open, all its doors are unlocked,
+but when it is secure the doors are locked and cardholders attempting entry
+will be subject to an access check.
+
+Since a real door has a space on each side of it a Command Centre door can
+have two zones attached:  an _entry_ zone and an _exit_ zone.  The only
+difference between the two is the event that Command Centre creates when
+someone badges from one to the other:  'access granted' or 'exit granted'.
+
+No matter which way around the zones are attached to a door, when a
+cardholder moves through it the resulting event calls the the zone into
+which they moved the 'entry' zone, and the one they just left the 'exit'
+zone.
 
 === Roles
 
-A role defines a relationship between two cardholders. One cardholder
+A _role_ defines a relationship between two cardholders. One cardholder
 can perform a role for many others but can have it performed for them by
 only one other. It makes more sense when you use the example
 'supervisor': a person has a supervisor and is a supervisor for many
 others. When you use REST to look up or update a cardholder, you will
 work on the 'has a' relationships, not the 'is a' relationships. In
-other words you can change the cardholder’s supervisor but not who the
-cardholder supervises.
+other words you can change the cardholder’s supervisor, but to change
+who the cardholder supervises you need to edit those individuals.
 
 === Competencies
 
-Basically, competencies are another condition that a cardholder must
-meet to pass an access check.
+Basically, _competencies_ are another condition that a cardholder must
+meet to pass an access check at a door.
 
 The REST API lets you manage the links between cardholders and
 competencies: create them, delete them, enable/disable them, and set
 their expiry dates.
 
+You might like to sit down for this part.
 A competency can be disabled, expired, both, or neither. Actions at a
 door can depend on whether a competency is disabled, expired, soon to
 expire, or all good.
 
-Whether it is disabled is a flag, plain and simple. Whether it is
-expired is derived from an expiry date (actually a timestamp): if it is
+Whether it is enabled is a flag, plain and simple. Whether it is
+expired is derived from an expiry timestamp: if it is
 in the past, Command Centre considers the competency expired.
 
 A competency can also have an enable date. If that date (timestamp)
@@ -340,6 +408,8 @@ If the competency is not disabled, the 'expires' time is important. If
 it is in the past, the cardholder’s competency is expired. If it is not
 set, or it is in the future, the cardholder benefits from the
 competency.
+
+A cardholder can have only one link to each competency.  They differ from access groups in that way.
 
 [cols=",,,",options="header",]
 |===
@@ -356,7 +426,7 @@ competency.
 
 A card type carries rules for the data that a card carries, PINs, how to
 treat cards around their expiry time, and default values for new cards
-of that type. We often use the word credential, because not all card
+of that type. We often use the word "credential" because not all card
 types involve a physical card: there are also biometric and mobile card
 types.
 
@@ -391,6 +461,7 @@ searches. However, the alarm still exists in the database and an alarm
 is also an event, so the events interface will return it whether
 somebody processed it or not.
 
+// Don't change the name.  It's linked.
 === Operator privileges
 
 Or just 'privileges' since there is no other kind.
@@ -458,9 +529,11 @@ a cardholder or event returns 201 ("created").
 
 A response in the 400-499 range generally means there was something
 wrong with the request. One exception is 409: it could mean that your
-timing was bad and trying again later may succeed. Along with 404, 409
+timing was bad and trying again later may succeed. Along with 403 and 404, 409
 could also mean you have attempted to do something beyond your
-privilege. The body of the response that comes back from the server will
+privilege. 401 means you did not sent a good Authorization header and
+the server does not trust you at all.
+The body of the response that comes back from the server will
 tell you the problem.
 
 500-level responses mean the server has met with trouble. Waiting for
@@ -531,12 +604,14 @@ First a little background. Very simply put, the current algorithms for
 secure communication require a pair of _keys_. Keys are nothing more
 than huge numbers. The two in the pair are different from each other,
 but mathematically related so that when you encrypt some data using one
-key, nobody can decrypt it if they do not have the other key. The
-encryption key is public because there is no harm in encrypting data.
-People toss encryption keys around like business cards. Its mate, the
-decryption key, is very, very private. They do more than just encrypt
-and decrypt data so they are not called the encryption and decryption
-keys: the business card one is called the _public key_ and the other is
+key, nobody can decrypt it if they do not have the other key. The key used for 
+encryption is public because there is no harm in encrypting data.
+People toss those keys around like business cards. Its mate, however,
+is very, very private, because it is the one that unlocks the secret message.
+
+These keys do more than just encrypt
+and decrypt data so we do not use those terms in their names.  The business
+card one is called the _public key_ and the other is
 the _private key_.
 
 A _certificate_ contains a public key plus metadata: what the key is
@@ -548,11 +623,12 @@ certificates, do not have a signature. Or they do, but it is their own
 signature, which does not really count because nobody trusts it. Such
 certificates are called _self-signed_. Web browsers cook up their own
 self-signed certificates all the time. Web server certificates, on the
-other hand, change infrequently (they last for months or years).
+other hand, last for months or years.
 
 If an HTTPS client and server connect and establish an encrypted channel
-of communication without checking certificates, nobody will be able to
-listen in but they should not trust each other. The other end could be
+of communication without checking certificates, it will be secret (nobody
+will be able to listen in)
+but they should not trust each other. The other end could be
 fibbing. So they conduct a negotiation to establish each other’s
 identity (i.e., they _authenticate_).
 
@@ -569,9 +645,10 @@ shows you how.
 
 Sometimes the server also requires a proof of identity from the client.
 This does not happen when using most web sites because (continuing the
-bank example) your bank has not pinned your client certificate: it does
-not care where you are coming from. But APIs should operate more
-securely than web sites so our recommendation is to turn it on.
+bank example) your bank does not care where you are coming from.
+It uses your password to authenticate you.  But APIs should operate more
+securely than web sites so our recommendation is to turn on the feature
+that makes the server check your clients' certificates.
 <<_client_side_certificates>> covers client
 certificates.
 
@@ -594,8 +671,8 @@ different things.
 
 The items (on the left in the table below) and the connection to a
 cardholder (on the right) both appear in the REST API, but the API only
-lets you change the connections. Until 8.50 added schedule management, a
-cardholder was the only kind of item you could create or modify. So let
+lets you change the things in the right column, the connections.
+So let
 us make some definitions:
 
 [width="100%",cols="50%,50%",options="header",]
@@ -605,19 +682,21 @@ us make some definitions:
 
 |Competency |Cardholder competency
 
-|Role |Relationship (the role is the nature of the relationship between
-two cardholders)
+|Role |Relationship +
+(the role is the nature of the relationship between two cardholders)
 
 |Locker |Locker assignment
 
-|PDF |Cardholder PDF, or PDF value
+|PDF |Cardholder PDF +
+or +
+PDF value
 |===
 
-There is a question of scale. You may have ten access groups, but
-thousands of group memberships. You may have only one role in the
-system, but one relationship per cardholder.
+There is a question of scale. You may have only two competencies, but thousands of cardholders with
+those competencies. You may have only one role in the system, but every one of your cardholders
+might have a relationship using that role.
 
-For that reason, the API calls that list items do not list their
+For that reason, the API calls that list items such as roles and competencies do not list their
 connections to cardholders. The result sets would be too large. Instead,
 you see those connections from the cardholder side: when you GET a
 cardholder’s details, you will see all the connections that cardholder
@@ -632,9 +711,9 @@ members, but only if you ask.
 
 Configuration client -> File -> Server Properties -> Web Services (about 15 down).
 
-Enable the REST API and–for the moment–tick the checkbox to the right of the port. It has a
-different label from this screenshot in 8.50. Have a good look at the status because it is the first
-indication of trouble binding a socket.
+Enable the REST API and–-for the moment–-tick the checkbox to the right of the port. This is an old
+screenshot:  it changed labels in 8.50. Have a good look at the status because if your server has a
+problem binding a socket (which just means "listening"), it will show here first.
 
 image::server_props_turnon.png[Enabling the public API,title="Enabling the web server"]
 
@@ -642,14 +721,15 @@ The Configuration Client’s online help covers this in the topic called
 'Web Services'.
 
 WARNING:  ⚠ *Make sure 'Do not require pinned client certificates' is off in production*. In 8.50 it
-is called 'Enable REST Clients with no client certificate'. It ships turned off: make sure it stays
-off on production servers.
+changed its name to 'Enable REST Clients with no client certificate'. It ships turned off: make sure
+it stays off on production servers.
 
 Requiring pre-shared certificates from clients is the best protection
 the server has against attackers on its network. If you tick the box to
 turn off that check when you first start your development, come back
 once your application is connecting successfully and untick it again.
-Read <<_client_side_certificates>> to help get your application connecting again.
+Read <<_client_side_certificates>> to help get your application connecting again
+after doing that.
 
 === Installing a custom server certificate
 
@@ -658,11 +738,11 @@ eventually choose to do it, it all happens under a button that arrived in Comman
 took the screenshot above, labelled 'Manage Certificates'. The Configuration Client’s online help
 covers it in detail in a section called 'Replacing the web service certificate' in the 'Changing the
 Web Services' topic. You can either import a public/private key pair into Command Centre (which is
-simple) or use the Windows Certificate Store (which uses Microsoft’s security instead of Command
-Centre’s). The summary of the Certificate Store process is: you need to name your certificate
-'Gallagher Command Centre Server' (please take care with the spelling), place it in the 'Gallagher
-Applications / Certificates' folder of the Local Computer Certificate Store, and give Command Centre
-the rights to use it. The online help lays that out step by step.
+simple, secure, and recommended) or use the Windows Certificate Store (which uses Microsoft’s
+security instead of Command Centre’s). The summary of the Certificate Store process is: you need to
+name your certificate 'Gallagher Command Centre Server' (please take care with the spelling), place
+it in the 'Gallagher Applications / Certificates' folder of the Local Computer Certificate Store,
+and give Command Centre the rights to use it. The online help lays that out step by step.
 
 === Create a REST operator
 
@@ -670,7 +750,7 @@ We will get to the reasons why in <<_why_we_need_an_operator>>.
 
 ==== Create an operator group and give it the necessary privileges
 
-You can do this in either of the clients.
+You can do this in either the operational client ("Command Centre") or the configuration client.
 
 Give the group the lowest level privileges it needs. For this exercise,
 you will need 'Create and Edit Cardholders' and 'Edit Alarms'. 'Modify
@@ -716,7 +796,7 @@ We call it a 'REST Client' but it is really a mapping from an API key
 to an operator. More on this later.
 
 Using the Configuration client, Configure -> Services and Workstations
-(at the bottom). Right-click menu -> New -> REST Client.
+(at the bottom). Right-click menu -> New -> REST{nbsp}Client.
 
 Set a name, then go to the 'API Key' tab.
 
@@ -748,7 +828,7 @@ raise an error 'A REST connection was attempted with an invalid API
 key'.
 
 When a client sends it to the server in an HTTP header it prepends
-'GGL-API-KEY' and a space. That string is not part of the key and you
+`GGL-API-KEY` and a space. That string is not part of the key and you
 should not use it in any of the places that expect an API key. It is
 just there so the HTTP request conforms to an Internet standard.
 
@@ -789,6 +869,9 @@ There are two extensions you need to install for Chrome to be really
 useful. One sends the API key to the server, and the other dresses up
 the JSON that it sends back.
 
+NOTE: Since writing this, several browser extensions have appeared that test REST APIs quite
+thoroughly.  They may provide a better experience.  Shop around.
+
 === Install the ModHeader extension
 
 You need to set a custom header, because that is how we send the API key
@@ -798,7 +881,7 @@ Start by clicking the 'Modify Headers' icon in Chrome. (Footnote:
 confusingly, there is also an extension called 'Modify Headers', which
 is different from 'ModHeader'. Use either.)
 
-Set a header called Authorization with a value of GGL-API-KEY followed
+Set a header called Authorization with a value of `GGL-API-KEY` followed
 by a space and the API key you took from the configuration client. Note
 in the example below I have two headers ready to go, only one of which
 is active. They are too wide for the Modify Headers window (there are
@@ -816,7 +899,7 @@ other web browsing will not. ModHeader now uses regular expressions, so
 if you have dots in your hostname you must put backslashes in front,
 `\.`.
 
-image::chrome_mod_header_setup.png[Install Mod Header Chrome extension,title="Install Mod Header Chrome extension"]
+image::chrome_mod_header_setup.png[Configure Mod Header Chrome extension,title="Configure Mod Header Chrome extension"]
 
 === Install a JSON viewer
 
@@ -829,7 +912,7 @@ JSON for you. I use 'Awesome JSON Viewer' because it is recent (April
 
 === Ignore server certificate warnings
 
-Send Chrome to `https://your_host:your_port/`.  `your_port` will be 8904 unless you changed it when
+Send Chrome to `https://yourhost:yourport/`.  `yourport` will be 8904 unless you changed it when
 you link:#_turn_on_the_web_server[set up the web server]. If your server does not have a certificate
 with a trust path to a trusted root certificate, you need to click through the warning below.  It
 will reappear occasionally. You can turn it off in Chrome but it is not a good idea, since you want
@@ -853,13 +936,16 @@ This is what the Modify Headers extension does in Chrome. It makes
 Postman send an Authorization header containing your API key with every
 request.
 
-Your requests also need a Content Type header but you do not need to set
+Your requests also need a Content-Type header but you do not need to set
 it yourself. Postman will add that after the next step.
 
 image::postman_auth_header.png[Setting auth header in Postman,title="Setting auth header in Postman"]
 
 *There is a mistake in that screenshot*: the value for the Authorization
-header should have GGL-API-KEY and a space before the API key.
+header should have `GGL-API-KEY` and a space before the API key.  Later versions of Command Centre
+will not work without it.
+
+// ...is the plan.
 
 === Set the content type to JSON
 
@@ -892,8 +978,8 @@ image::postman_server_cert_warning_off_2.png[Postman SSL cert verification off,t
 
 === The most basic GET
 
-Using Chrome, go to https://your_server:8904/api again. This document
-and the developer documentation use the following shorthand, which omits
+Using Chrome, go to https://yourserver:8904/api again. This document
+and the developer documentation use the following shorthand for that instruction, which omits
 the protocol, host, and port:
 
 ....
@@ -919,9 +1005,9 @@ With a RESTEvents licence you will get more:
 {
   "version": "7.90.0.0",
   "features": {
-    "items": {2 items},
-    "alarms": {3 items},
-    "events": {4 items}
+    "items": {...},
+    "alarms": {...},
+    "events": {...}
   }
 }
 ----
@@ -931,20 +1017,20 @@ With a RESTCardholdersEvents licence:
 {
   "version": "7.90.0.0",
   "features": {
-    "items": {2 items},
-    "alarms": {1 item},
-    "cardholders": {1 item},
-    "events": {1 item},
-    "accessGroups": {1 item},
-    "roles": {1 item},
-    "lockerBanks": {1 item},
-    "competencies": {1 item},
-    "cardTypes": {1 item}
+    "items": {...},
+    "alarms": {...},
+    "cardholders": {...},
+    "events": {...},
+    "accessGroups": {...},
+    "roles": {...},
+    "lockerBanks": {...},
+    "competencies": {...},
+    "cardTypes": {...}
   }
 }
 ----
 
-That is not the exact JSON you will get (that example is not even JSON) but hopefully
+That is not the exact JSON you will get (that is not even JSON) but hopefully
 you get the idea.
 
 === Cardholder summary
@@ -953,10 +1039,13 @@ you get the idea.
 GET /api/cardholders
 ....
 
-That means you should Chrome or Postman to `https://your_host:your_port/api/cardholders`.
+That means you should Chrome or Postman to `https://yourhost:yourport/api/cardholders`.
 
 Your operator should be there. Try following some of the links. If you
 are using Chrome, just click on them.
+
+One of the links called `href` (probably the first one) will take you to a cardholder's _details_
+page, covered in the next section.
 
 Next try:
 
@@ -978,8 +1067,8 @@ GET /api/cardholders?sort=id&top=10000
 v8.00 delivered the ability to add all the fields from the details page
 to the summary page, using the `fields` parameter. See the developer
 documentation for a proper description, but in short, try adding
-fields=fieldname to your request URL (after a `?` or `&` of course)
-where fieldname is the name of a field you can see in a detail page,
+`fields=_fieldname_` to your request URL (after a `?` or `&` of course)
+where _fieldname_ is the name of a field you can see in a details page,
 such as `cards` or `accessGroups`. For example:
 
 ....
@@ -988,14 +1077,14 @@ GET /api/cardholders?sort=id&top=10000&fields=firstName,lastName,cards
 
 === Hrefs are URLs as well as identifiers
 
-Notice the fields called href in the cardholder summary? They are URLs,
+The fields called `href` in the cardholder summary are URLs,
 and hopefully you have followed one already. Some will return you a page
 of data, and some will 404. We call them _hrefs_ rather than URLs
 because they are HTML references that, in our case, happen to be HTTPS
 URLs.
 
-Hrefs are very important. Each object in Command Centre – events,
-alarms, items, connections between them – has one that identifies it.
+Hrefs are very important. Each object in Command Centre--events,
+alarms, items, connections between them--has one that identifies it.
 You will be sending many of them in the bodies of your requests.
 
 === Cardholder detail
@@ -1040,7 +1129,7 @@ expects very nearly the same structure when you create or modify a
 cardholder. They vary in the quantity of fields and their levels in the
 document.
 
-== First GETs: events
+== First GETs part two: events
 
 === List all events
 
@@ -1069,6 +1158,8 @@ number of requests.
 GET /api/events?top=5000
 ....
 
+It might take a while for the JSON viewer to render all that JSON.
+
 === List all alarms
 
 The alarms interface only returns alarms that have not been processed,
@@ -1085,6 +1176,8 @@ The `updates` URL is a long poll: GETting it will block until more
 alarms occur or the call times out.
 
 == Back into the theory
+
+This section is a grab-bag of facts you need before going further.
 
 === API controllers
 
@@ -1122,6 +1215,8 @@ You can run reports that filter on the source and operator to monitor
 your integration.
 
 === The request process
+
+This is shown in a link:auth_flow.dot.pdf[rough flowchart].
 
 All HTTPS requests start like this:
 
@@ -1199,8 +1294,8 @@ In Postman:
 
 image::postman_create_cardholder_1.png[POST to create a cardholder,title="POST to create a cardholder"]
 
-Notice that there are two headers set: `authorization` contains the API
-key and `content type` tells the server that the body is JSON.
+Notice that there are two headers set: `Authorization` contains the API
+key and `content-type` tells the server that the body is JSON.
 
 This document uses this shorthand to represent that kind of HTTP query:
 
@@ -1215,9 +1310,9 @@ This document uses this shorthand to represent that kind of HTTP query:
 }
 ----
 
-The first line gives the verb and the file part of URL. It needs the
-protocol, host, and port prepended: https://your_server:8904. The rest
-is the body.
+The first line gives the verb and the file part of URL. It needs the protocol, host, and port added,
+to form the final request: a POST to `https://yourserver:8904/api/cardholders`. The rest is the
+body.
 
 When you create a cardholder you must specify the division and either
 the first or last name, so this example is about the shortest you can
@@ -1264,9 +1359,6 @@ and PDF values that sit at the top level of a cardholder and do not have structu
 own. Other data such as cards, access group memberships, and competency assignments are one level
 down, in arrays, and contain other fields.
 
-Before you can associate your cardholder with other items, you need to
-make them.
-
 === Setup: give a cardholder access groups and PDFs
 
 For a cardholder to have a PDF, both need to be on the same access
@@ -1296,7 +1388,7 @@ In the configuration client, Manage -> Access Groups, right-click menu,
 New -> Access Group.
 
 Open the cardholder and PDF lists out of the Manage menu so that you can
-drag items out.
+drag items out of them.
 
 Drag your new cardholder to the Cardholder Membership tab of the access
 group.
@@ -1351,7 +1443,7 @@ Here is a cutting from the details page of a cardholder with an image
 PDF:
 
 ----
-// GET /api/cardholders{id}
+// GET /api/cardholders/{id}
 {
   ...
   "@datePDF": "2099-03-31T00:00:00Z",
@@ -1381,8 +1473,7 @@ quotes and send it like any other PDF:
 } 
 ----
 
-If you see a load of what looks like garbage ending with equals signs,
-it is probably Base64.
+TIP: If you see a load of what looks like garbage ending with equals signs, it is probably Base64.
 
 
 == Cards
@@ -1394,8 +1485,8 @@ cardholder a card and modify existing cards.
 
 Like all cardholder modifications, you do this with a PATCH to the
 cardholder href. However a card is not a flat field: it is a member of
-an array in the cardholder object called cards. To add an item to the
-cards array, or change one, you pass in an object also called cards.
+an array in the cardholder object called `cards`. To add an item to the
+cards array, or change one, you pass in an object also called `cards`.
 True to previous advice, we do all operations in one PATCH.
 
 Borrowing from the API documentation:
@@ -1475,8 +1566,6 @@ cardholder. Do not read anything more into it: treat it as opaque.
 
 === Don’t delete cards: disable them
 
-NOTE: Disabling cards can be better than deleting them.
-
 That wasn't a great example because generally, when you have reason to stop a card from working, you
 want:
 
@@ -1488,6 +1577,9 @@ want:
 Command Centre achieves the first two of these goals if you delete an old card but it is easier if
 you leave it card in the system, non-functional. You can set its end date into the past or set its
 state to one of the disabled states.
+
+WARNING: Deleting cards loses information about it, and can reduce the security of your building. +
+Disable them instead.
 
 
 == Group memberships
@@ -1504,8 +1596,8 @@ back from your POST when you link:#_create_a_cardholder[created a
 cardholder].
 
 You also need the href of your access group. You can see all your access
-groups by querying the access groups controller. Hint: `GET /api`. Extra
-hint: `GET /api/access_groups`.
+groups by querying the access groups controller. Hint: `GET /api` then look
+in the block called `accessGroups`. Extra hint: `GET /api/access_groups`.
 
 When you have those two hrefs, substitute them into:
 
@@ -1581,7 +1673,7 @@ hrefs.
 
 === Edit an existing group membership
 
-Change the URL of the cardholder and the access group membership in this PATCH:
+Correct the URL of the cardholder and the access group membership in this PATCH:
 
 ----
 //PATCH /api/cardholders/325
@@ -1598,7 +1690,7 @@ Change the URL of the cardholder and the access group membership in this PATCH:
 ----
 
 If it returns a 204, GET your cardholder again and look at its access
-group memberships. The from date should have changed from 2037 to 2027,
+group memberships. The from date should have changed from 2017 to 2027,
 and the membership href will be different.
 
 The server changes the href after an update to prevent race conditions
@@ -1651,7 +1743,7 @@ is necessary for the PDF to work), and gives them a card.
 <1> These identify an access group and card type for your new cardholder.
 <2> Never mind the competency yet. The `zzz` makes the server ignore it.
 
-First you will need to change the marked numbers to the IDs of an access group and a card type on
+You will need to change the marked numbers to the IDs of an access group and a card type on
 your system. You can get those with:
 
 ....
@@ -1665,8 +1757,8 @@ GET /api/card_types
 ....
 
 In Chrome, those calls will look like
-https://your_host:8904/api/access_groups and
-https://your_host:8904/api/card_types.
+`https://_yourhost_:8904/api/access_groups` and
+`https://_yourhost_:8904/api/card_types`.
 
 An actual application would also find the href of the correct division,
 but for today is it safe to assume that the href of the root division is
@@ -1708,8 +1800,8 @@ you -- probably 3163).
 
 == Coding considerations
 
-There are several things you should keep in mind when building an
-integration against this API.
+If you don't mind a return to theory, here are several things you should keep in mind when building
+an integration against this API.
 
 === Recap
 
@@ -1722,10 +1814,10 @@ specific purpose, such as `card_types/assign`, which returns the card types your
 to people.
 
 * Summary pages show you many items without much detail of each. You can add sorting and pagination
-parameters.  link:#_cardholder_summary[Cardholders], link:#_first_gets_events[alarms and events],
-and link:#_other_command_centre_items[other items]. Tell the API to sort its results by ID because
-it is quicker, and more reliable when operators are changing the database. Unless you’re writing a
-user app and really must have your results sorted by name.
+parameters.  link:#_cardholder_summary[Cardholders], link:#_first_gets_part_two_events[alarms and
+events], and link:#_other_command_centre_items[other items]. Tell the API to sort its results by ID
+because it is quicker, and more reliable when operators are changing the database. Unless you’re
+writing a user app and really must have your results sorted by name.
 
 * You can also add filters to summary pages, turning them into search pages. See
 <<_search_for_a_cardholder>> and <<_event_filters>>.
@@ -1733,9 +1825,12 @@ user app and really must have your results sorted by name.
 of items, and in 8.40+, events. Or you can specify the exact fields you
 need, if you want to save traffic.
 * You walk the result set using links named `next` and `previous`.
-* Detail pages give you more on an item, but only one item at a time.
-Their URLs end with short alphanumeric identifiers.
-link:#_cardholder_detail[A cardholder], for example.
+
+* Detail pages give you more on an item, but only one item at a time.  Their URLs end with short
+alphanumeric identifiers.  link:#_cardholder_detail[A cardholder], for example.  There is not much
+use for detail pages in the API after v8.00, since you can add all their fields to the summary pages.
+
+
 * To create a cardholder, link:#_first_post_and_search[POST the
 cardholders controller]. The body of the POST is pretty much the same as
 you get from a GET of an existing cardholder, but with fewer fields.
@@ -1771,7 +1866,7 @@ When modifying an existing cardholder, do it all in one PATCH.
 
 === The importance of /api
 
-Forgot all the URLs you have seen so far, except the first, and do not
+Forget all the URLs you have seen so far, except the first, and do not
 write them into your applications. The only address that your
 application should have coded into it is `/api`. You can learn every
 other address you need with a GET of that. It will return a table of
@@ -1905,9 +2000,9 @@ You should parse the `features` block of that page for the URLs of the
 calls you need. It contains one block for each controller in the API:
 cardholders, events, alarms, etc. Some of those blocks contain one more
 block, in turn containing an href for the base call for that controller.
-Other controllers (card_types) contain more than one, each containing an
+Other controllers (`card_types`) contain more than one, each containing an
 href for a different call. For example, the events and alarms
-controllers also provide a divisions call which lists the divisions in
+controllers also provide a `divisions` call which lists the divisions in
 which your operator has the privilege to see events and alarms,
 respectively.
 
@@ -1926,12 +2021,10 @@ Help yourself to the sample C#, starting with ClientManagerAsync.cs.
 
 There are two API identifiers: IDs and hrefs.
 
-The REST API returns two kinds of identifier:
-
-The short alphanumeric string that comes in a field called id is there
-purely for use in filters. Because you add them to URLs they have to be
-short and free of punctuation, so we do not use the longer identifier
-that comes next. Section 17.1 shows how to use them to find events.
+The short alphanumeric string that comes in a field called `id` is there purely for use in query
+parameters, such as filters. Because you add them to URLs they have to be short and free of
+punctuation, so we do not use the longer identifier that comes next. <<Event filters>> shows how to
+use them to find events.
 
 CAUTION: *Do not treat IDs as integers*. They are alphanumeric. A future version may add letters.
 
@@ -1993,7 +2086,8 @@ refresh your cache using a PDF search.
 You will note that every cardholder href begins with the scheme, host,
 and port: `https://localhost:8904` in these examples. I am going to
 contradict earlier advice ever so slightly and suggest that you drop the
-`https://host:port` from the front of an href before storing it, then
+// BUG does not italicise the port
+`https://_host_:port` from the front of an href before storing it, then
 add the host and port from your integration’s configuration before using
 it again. By doing that you give yourself the flexibility to change the
 hostname or port without invalidating your cache of hrefs.
@@ -2046,7 +2140,7 @@ an 8.10 server but fail when the server upgrades to 8.20. Client code
 that takes the href from a locker bank page will work with both
 versions.
 
-=== Sort by ID, and get all summary pages before any details
+=== Sort by ID, and get all summary pages without delay
 
 By default, item summaries arrive sorted by name. That can cause a race
 condition:
@@ -2057,9 +2151,11 @@ condition:
 cardholders to part of the alphabet you have not collected yet, or vice
 versa.
 . The next 1000 cardholders will either contain one you already
-received, or will skip one you did not. There are three things you can
-do to reduce this risk:
-* Sort by ID. Command Centre does not recycle them so no cardholder can
+received, or will skip one you did not.
+
+There are three things you can do to reduce this risk:
+
+* Sort by ID. Command Centre does not recycle IDs so no cardholder can
 slip into part of the database you have already extracted.
 * Collect hrefs from the summary pages, following the next link until it
 no longer arrives, before using any of them. This means you collect
@@ -2122,7 +2218,7 @@ These are the results of informal performance tests of Command Centre
 7.90 running on reasonably capable hardware.
 
 You will not achieve these numbers without following the advice in the
-`efficiency tips' sections of the developer documentation.
+'efficiency tips' sections of the developer documentation.
 
 ==== Extracting events
 
@@ -2136,10 +2232,11 @@ minutes on a v7.90 server. The process was to request a summary page of
 10,000 cardholders, then the remaining 2,000, then iterate through all
 their hrefs, getting their details pages one by one.
 
-Extracting the same fields for the same *12,000 cardholders took 12
-seconds* on the same server running v8.00. This process used the fields
-parameter to add cards, access groups, and PDFs to the summary page so
-that the test did not have to get any detail pages.
+That is a poor approach these days.  Extracting the same fields for the
+same *12,000 cardholders took 12 seconds* on the same server running
+v8.00. This process used the `fields` parameter to add cards, access
+groups, and PDFs to the summary page so that the test did not have to
+get any detail pages.
 
 ==== Extracting 200,000 cardholders
 
@@ -2147,7 +2244,7 @@ Now on 8.30 and different hardware, extracting the names of 200,000
 cardholders took one minute with `top=1000&sort=id`, or 28 minutes
 without. That is how important those query parameters are. Use them!
 
-Part of the 3x speedup from the previous test will be due to the absence
+Part of the three-times speedup from the previous test will be due to the absence
 of PDFs: they can be expensive to extract.
 
 ==== Creating cardholders
@@ -2164,11 +2261,15 @@ handful of group memberships and PDFs.
 The developer documentation is authoritative on how to restrict your
 event results, but here is an introduction.
 
-You can filter by the occurrence date/time, the source item, the
-source’s division, the event’s type, the type’s group (all event types
-are grouped, and picking a group is synonymous with picking a few
-types), or the event’s cardholder.
+You can filter by the occurrence date/time, the source item, the event’s division (which is almost
+always the source's division), the event’s type, the type’s group (all event types are grouped, and
+picking a group is synonymous with picking a few types), or the event’s cardholder.
 
+In 8.70 and later you can limit the events to those related to a particular item.  For example, by
+specifying a cardholder's ID you will receive the same events that would appear in Command Centre's
+activity report for that cardholder.
+
+// BUG doesn't want to use fixed-width for the right column
 [cols=",",options="header",]
 |===
 |To filter by … |Add a query parameter called…
@@ -2178,6 +2279,7 @@ types), or the event’s cardholder.
 |Source |`source`
 |Division |`division`
 |Date |`after` and / or `before`
+|Related item | `relatedItem`, and be running 8.70 or later.
 |===
 
 For example, to find all card events ('access granted', 'access denied',
@@ -2199,21 +2301,32 @@ GET https://localhost:8904/api/events?id=325,8445
 
 To keep the query strings manageable, these filters take short,
 alphanumeric strings as IDs rather than the URLs that the API generally
-uses for identifying items. In 7.90 and 8.00 these IDs are low numbers,
+uses for identifying items. At the version of writing (8.70) these IDs are low numbers,
 but we reserve the right to introduce letters in the future, so do not
 interpret them as integers.
 
 These are your options for finding the IDs you need to build a filter
-string: * look at one of the events you want. Everything you can filter
-by is there; * look at `/api/events/groups` for event types and their
-groups; * look at `/api/cardholders` for cardholders; * look at
-`/api/items` for all other items, using a type filter of its own from
-looking at `/api/items/types`; * if running v8.00 or later, look at the
-controllers for doors, outputs, alarm zones, access zones, and fence
-zones, linked from `/api`; * If running v8.10 or later, look at the
-inputs controller.
+string:
 
-For example, to find all your doors in 7.90, you would
+* look at one of the events you want in the API. Everything you can filter by is there;
+* look at `/api/events/groups` for event types and their
+groups;
+* look at `/api/cardholders` for cardholders;
+* look at `/api/items` for all other items, using a type filter of its own from looking at
+`/api/items/types`;
+* if running v8.00 or later, look at the controllers for doors, outputs, alarm zones, access zones,
+and fence zones, linked from `/api`;
+* If running v8.10 or later, look at the inputs controller.
+
+For example, to find all your doors you would
+
+....
+GET https://localhost:8904/api/doors
+....
+
+(after getting that URL from `GET /api`, of course)
+
+The doors controller arrived in 8.00, so if you have 7.90 or older you would
 
 ....
 GET https://localhost:8904/api/items?type=11
@@ -2225,20 +2338,13 @@ That 11 came from
 GET https://localhost:8904/api/items/types
 ....
 
-If you have 8.00 or later, just
-
-....
-GET https://localhost:8904/api/doors
-....
-
-(after getting that URL from `GET /api`, of course)
 
 === Filtering by date
 
-Even though the before and after fields are only accurate to a second,
+Even though the `before` and `after` fields are only accurate to a second,
 filtering by date is 'smart' for reports: the result set will not
-include events that occurred during the before second. For example,
-`before=2019-01-01T00:00:00Z` will not return you any events from 2019.
+include events that occurred during the `before` second. For example,
+`before=2019-01-01T00:00:00Z` will not return you any events from 2019 or later years.
 Pass the `before` parameter for one report as the `after` parameter of
 the next. You never need to use `23:59:59`, and there is no risk of
 missing an event that happens in the last second, or in a leap second.
@@ -2256,13 +2362,13 @@ Card events such as 'access granted' use the door as the source but also
 have a related cardholder. The event JSON includes the cardholder’s name
 and href, but if you want to use your own identifiers for cardholders
 you can also ask for a PDF to come out with the event. Do that by adding
-fields=defaults,cardholder.pdf_XXXX where XXXX is the ID of the PDF.
+`fields=defaults,cardholder.pdf_XXXX` where `_XXXX_` is the ID of the PDF.
 Find that ID with a query to `/api/personal_data_fields`, adding
 `?name="your_pdf_name"` if you want Command Centre to do the searching
 for you.
 
 In order to see that PDF, your REST operator will need the appropriate
-privileges. Otherwise the event will come out without the PDF. `View
+privileges. Otherwise the event will come out without the PDF. 'View
 Cardholder' on the cardholder might not be enough: while PDFs are
 visible by default, an operator can hide them, in which case your REST
 client’s operator group will need to override that to readable or
@@ -2525,10 +2631,13 @@ it restarted.
 }
 ----
 
+That illustrates how events' occurrence times can be out of order when the devices sending them to
+the database are out of sync.
+
 == Client-side certificates
 
-First see <<_authentication_and_encryption_certificates>> for what certificates are and what the
-difference is between server certificates and client certificates.
+First see <<_authentication_and_encryption_certificates>> for what certificates are and the
+difference between server certificates and client certificates.
 
 This section deals with the client certificate check that happens if you
 left 'Do not require pinned client certificates' off in the 'Web
@@ -2563,19 +2672,19 @@ private key. That may be acceptable in a development environment but for
 proper security in a production environment you should omit the bold
 parts.
 
-=== What the feature does
+=== What client certificate checking does
 
-When not disabled by
-link:#_the_mysterious_client_certificate_checkbox[the checkbox] in the
-server properties, Command Centre requests proof from the client that it
-has the private key that matches a public key that the server has
-configured into it (pinned). A public key is hundreds of bytes so you
-don’t want to paste the whole thing into Command Centre’s configuration,
-and we do not want to compare all those bytes for each request, so you
-enter a signature instead. It is known as the certificate’s thumbprint
-or fingerprint, and is a cryptographic hash of the whole certificate. It
-is impossible for a client to send a fake certificate with a thumbprint
-that looks real.
+// You cannot have _emphasis_ in a paragraph following a link.  Asciidoctor turns the first
+// underscore in the link into an <em>.  So, use __emphasis__ instead.
+
+When not disabled by link:#_the_mysterious_client_certificate_checkbox[the checkbox] in the server
+properties, Command Centre requests proof from the client that it has the private key that matches a
+public key that the server has configured into it (pinned). A public key is hundreds of bytes so you
+don’t want to paste the whole thing into Command Centre’s configuration, and we do not want to
+compare all those bytes for each request, so you enter a shorter form instead. It is known as the
+certificate’s __thumbprint__ or __fingerprint__ and is a cryptographic hash of the whole
+certificate. It is impossible for a client to send a fake certificate with a thumbprint that looks
+real.
 
 Certificates can also contain a chain of trust linking the certificate
 back to a trusted authority. A client uses a server certificate’s chain
@@ -2667,8 +2776,8 @@ in your application.
 
 === Create a certificate and record the thumbprint in CC
 
-These commands create a client certificate.  You need to run them on the
-system that will be running your REST client--that may not be your Command
+The following commands create a client certificate.  You need to run them on the
+system that will be running your REST client.  That may not be your Command
 Centre server.
 
 ==== Using OpenSSL tools
@@ -2697,6 +2806,10 @@ openssl req -x509      \
 
 Notice the `rsa:4096`: it produces a four-kilobit key, which is huge.  It might be
 overkill for development, but it's nice to have the option.
+
+Its name will be 'RESTtest'.  You should come up with a name related to your application's purpose
+because diagnising certificate problems is a tough enough job without ambiguous certificate names
+muddying the waters even more.
 
 Again, the bold part is  reducing your security. In this case,
 the `-nodes` option (footnote: it means 'no DES'. It is not the plural
@@ -2783,6 +2896,11 @@ makecert ignoreme.der
 +
 That will create a certificate and place it in your certificate store
 with a copy on disk.
+
++
+Its name will be 'RESTClientCert'.  As previously indicated, you should come up with an informative
+name for your certificates so that the brave souls diagnosing your TLS issues have something to
+go on.
 
 +
 The `-pe` marked the key as exportable.  More on that later.
@@ -2883,7 +3001,7 @@ of that message will tell you which REST Client Item you need to put the
 thumbprint on, and the alarm's details string will contain the thumbprint
 itself.
 
-If the thumbprint is `(null)`, your client is not sending a certificate
+If the thumbprint is `(null)`, your client did not send a certificate
 at all.
 
 Otherwise, copy the thumbprint straight out of there and paste it into
@@ -2962,16 +3080,21 @@ I found `--verbose` necessary to see error codes.
 
 == Server-side certificates
 
-In production environments, clients should refuse to talk to a server that offers a certificate that
-is not carrying a signature from one of the internet’s signing authorities. One that has not been
-paid for, in other words.
+A client in a production environment should refuse to talk to a server that it does not recognise.
+"Recognising" a server means either
+
+- having a copy of its certificate on the client already (which is the same as the client
+  certificate pinning covered in the previous section, only it is the client doing it to the server
+  instead of the server doing it to the client), or
+- having a trusted Internet authority's signature on the certificate.
 
 WARNING:  *Production clients should check server certificates.* If not, an attacker could
-masquerade as the server.  The client would send it its API key which -- if the server was not
-checking client certificates -- the attacker could then use for calls of its own.
+masquerade as the server.  The client would send it its API key to the fake server, and the attacker
+could--if the real server was not checking client certificates--use it for calls of its own.
 
 But if you are working in a development rig and your server does not have a signed certificate, you
-might like to stop the client from checking it as you told Chrome and Postman to do earlier.
+might like to tell your client to skip the server certificate check, as you told Chrome and Postman
+to do earlier.
 
 If you will pardon a very brief dive into source code, here is one way to do it in a C# client:
 
@@ -2993,7 +3116,7 @@ You only need one of these.
 Go to Server Properties in Command Centre's configuration client, then Web Services -> Manage
 Certificates, and click View on whichever type of certificate you are using. Go to the Details tab
 in the window that appears, then choose Copy to File. You have a few choices for the format to
-export it to. DER is good for Windows machines, but a PFX -- if that option is enabled -- might be
+export it to. DER is good for Windows machines, but a PFX--if that option is enabled--might be
 more widely accepted on non-Windows systems. If you are ever asked if you want to export the private
 key, _just say "no"_.
 
@@ -3027,7 +3150,7 @@ suit, perhaps because you do not have control of the clients, you could
 buy a "real" certificate for your CC server. One drawback is that
 signatures eventually expire, requiring you to do this every year or
 three. Another is that you must buy a new certificate if you change the
-name of your server – so use a DNS alias.
+name of your server.  So, use a DNS alias.
 
 This is nothing new for REST APIs: it is the process that every web
 site owner goes through. If you want to sell scones and Toby mugs from
@@ -3038,8 +3161,8 @@ www.itsabritishthing.com, for example, you:
 . decide which signing authority to use,
 . send the CSR to that signing authority, with your credit card details and proof that you own
   itsabritishthing.com,
-. wait, then
-. use the signed certificate on your web server.
+. wait for them to send you your new certificate, then
+. install it on your web server.
 
 That is exactly what you will need to do for Command Centre. Start with
 the DNS alias for your server instead of www.itsabritishthing.com. The
@@ -3048,7 +3171,7 @@ depend on which authority you choose. Finish with a simple process
 covered in the section called "Replacing the web service certificate"
 of the Configuration Client’s user guide. Briefly, it is:
 
-. Go to Server properties, Web Services, REST API section Manage Certificates,
+. Go to Server properties -> Web Services -> Manage Certificates in the REST API section,
 . change the radio box to Custom Certificate,
 . click Import, and
 . browse to your certificate file.
@@ -3177,8 +3300,10 @@ The developer documentation clearly lays out all the status flags items
 can return, and their rules. For example, here is part of the section on
 outputs:
 
+____
 If the output is online, its `statusFlags` field may contain one or more
 of these flags:
+
 * `relayStateUnknown` means the controller does not know what the output should be doing.
 * `closed` means the output relay is closed.
 * `open` means the output relay is open.
@@ -3189,6 +3314,7 @@ of these flags:
 If and only if the output is online, one of `relayStateUnknown`,
 `closed`, or `open` will appear. Of the above, only `overridden` can
 appear when the output is offline.
+____
 
 The above tells you that the first flags you should look for are
 `relayStateUnknown`, `closed`, and `open`. If none of those is in the
@@ -3204,8 +3330,7 @@ problem like a network outage, a cable fault, or a service not running.
 The developer documentation covers them all (search for 'abnormal
 status').
 
-End quote. There is a lot more on the topic in the reference
-documentation.
+There is a lot more on the topic in the reference documentation.
 
 === Subscribing to updates (one item at a time, pre-8.30) TODO
 
@@ -3217,12 +3342,13 @@ the server won’t respond until it has something for you (or it times out
 after about 50s). Then stay up to date by entering a loop GETting the
 `next` link.
 
-You really should be using bulk item updates, in the section below. Why
-use this one instead?
+You really should be using bulk item updates, in the section below, because this method requires one
+TCP connection per monitored item. Why use this?
 
 * You’re not running 8.30 yet, or
 * you’re monitoring only one item and want a slightly simpler call, or
-* your client wants to wait longer than 30s between GETs.
+* your client wants to wait longer than 30s between GETs (but it is hard
+  to imagine a client needing that).
 
 === Subscribing to updates (many items, 8.30+) TODO
 
@@ -3254,22 +3380,58 @@ redundant, but that is just the way it is. Just keep looping.
 This is a far better way of monitoring multiple items that the previous
 because it only uses one server connection per client.
 
+At time of writing (8.80) this is the only API call that maintains state
+between calls.  All the others require their context to arrive with the
+query.
+
 === Schedules and day categories TODO
 
-Schedules arrived in 8.40. The API lets you create and delete them, and
+Schedules arrived in 8.40. The API lets you view, create, and delete them, and
 modify how they affect their items. It does not let you change the items
 they affect.
 
+[TIP]
+====
+If you are not familiar with Command Centre:
+
+There are seven types of schedule.  They all contain a list of day
+categories (more on those later), and for each day category, a list of
+times (00:00 through 23:59) paired with an action to perform at that time.
+
+Where the schedule types differ is in the item types they can control, and
+the actions that they trigger on the item they are controlling.
+
+[cols="30%,70%",stripes=even]
+|===
+|Schedule type | Actions
+|Cardholder | Access granted / denied
+|Access zone | Zone mode (secure, free, etc.).
+|Alarm zone | Zone mode (armed, disarmed, etc.).
+|Output | On / off / cancel overrides
+|Notifications |  On / off
+|HV/LF | High / low / cancel overrides
+|Elevator kiosk | Control mode
+|===
+
+The access zone and alarm zone schedules can switch their zone to any mode.
+The other five select between two modes.
+
+Some of them have another action that cancels any untimed overrides that
+happened since the last scheduled changed, returning control back to the
+schedule.  It won't affect overrides that have an end time.
+
+====
+
 When updating a schedule you must replace its entire list of day
 categories and times. This is quite different from how you update other
-lists via this API. The JSON schema ha room for us to accept the normal
+lists via this API. The JSON schema has room for us to accept the normal
 style as a future enhancement, but in 8.40 you must replace all a
 schedule’s schedules at the same time. That suits our target use-case,
-which was for an integration to download the schedule, de-serialise it
+which is for an integration to download the schedule, de-serialise it
 into an object model, change some part of it, then re-serialise and
 upload it back.
 
-As of 8.60, the only types of item that the API can create are
+As of 8.80, the only types of item that the API can create are
 cardholders, visits, and schedules.
 
 == Visitor management
@@ -3279,10 +3441,10 @@ cardholders, visits, and schedules.
 The Command Centre Visitor Management feature allows you to manage _visit_ items. A visit contains
 
 * a list of expected _visitor_ cardholders,
-* a _host_ cardholder, responsible for them while on site,
+* a _host_ cardholder, responsible for a visitor while on site,
 * a _reception_, which is a location at which visitors may arrive,
-* a _visitor type_, that servers two purposes. It is an access group that Command Centre will add
-  your visitors to when you add them to the visit, and it is an index into more visitor management
+* a _visitor type_, that serves two purposes:  an access group that Command Centre will add
+  your visitors to when you add them to the visit, and an index into more visitor management
   configuration,
 * a list of _visitor access groups_ that your visitors need to be in while on site,
 * other flat fields such as the dates of the visit and a description.
@@ -3311,7 +3473,7 @@ visitors.
 It does not let you change visitor management configuration. You do
 that on divisions in the Configuration Client.
 
-It does not let you sign visitors in or out, or mark them on or off
+It does not let you sign visitors in or out, nor mark them on or off
 site. Please contact your account manager if you need these features.
 
 === Setting up Command Centre to use Visitor Management via the API
@@ -3340,20 +3502,94 @@ except a 200-level response code please look in the body.
 
 When you add a visitor to a visit, Command Centre will add that
 cardholder to the visit’s visitor type access group. Then you can add
-PDFs to the cardholder (such as an image). When the cardholder signs in,
+PDFs to the cardholder (such as an image). When the cardholder signs in
 using a Gallagher Visitor Management Kiosk, or when a greeter signs them
 in using the Visitor Management Client, Command Centre will add the
 visitor to the visit’s visitor access groups.
 
+== The API gateway
+
+The API gateway lets clients connect to the server when they cannot reach its port 8904 directly.
+Command Centre needs to be connected to a cloud server, and it needs to turn on the API gateway
+globally and in each REST Client item that needs it (which only takes a few clicks) then the client
+simply changes the host in its connection URL to the cloud server that the CC is connected to.  The
+client uses the same API key, the same client certificate, and the same root path (`/api`).
+
+Everything else is the same, including the documentation URL https://gallaghersecurity.github.io.
+
+There are no additional licence requirements.
+
+Note that due to the traffic hairpinning through Amazon's servers, throughput is significantly
+reduced.
+
+For a lot more detail about the API gateway, see its technical information paper at
+https://gallaghersecurity.github.io/docs/Command%20Centre%20Cloud%20Api%20Gateway%20TIP.pdf
+
+== Notes for penetration testers
+
+This section contains answers to questions raised after penetration tests.
+
+Also see <<_the_request_process>> for how the server authenticates and authorises requests.
+
+
+=== Item IDs are easily predicted
+
+All Command Centre's items are referenced by a URL containing the item's database ID, which is a
+small integer.  It is trivially easy to generate the URL ("href") of every item in the system by
+starting at ID number one and iterating up.  Some tests flag this as an issue.
+
+We expect attackers to do this.  We do not rely on a client's ignorance of server state to protect
+it (other than API keys, of course).  The server will always enforce the licensing and privilege
+models.  For example, when a client asks for the details of an item it is unable to view the server
+will respond as though the item does not exist (with a 404).
+
+The external penetration testers Gallagher engages have access to our source code so that they can
+conduct white-box testing and fully exercise the privilege model.  Their reports are available on
+request.
+
+=== There is no rate-limiting of authorised requests
+
+The API does not throttle correctly-authenticated API requests, which makes it look like it is not
+protecting itself from denial-of-service attacks.
+
+It protects itself from incorrectly-authenticatd API requests.  It raises medium-priority alarms for
+the first few bad requests, then another at the highest priority to inform operators that it is
+under a DoS, after which it falls silent until the attack ends.
+
+We are looking at options for rate-limiting the API, but it is a balance between protecting
+the server from an unlikely situation and preserving the normal operation of our integrations, some
+of which make a huge number of requests per second.
+
+We consider a DoS attack from a fully-authenticated bad actor (in other words, one with a valid API
+key, TLS certificate, and source IP) is not likely enough to justify urgency.
+
+So far, the denials of service our customers have observed were caused by authenticated integrations
+acting improperly.  To help developers avoid that the reference documentation contains sections
+headed "efficiency tips".
+
+=== The server uses the Host header
+
+Our web server uses the Host header sent by the client to form URLs that it sends back.  Although
+the server does not change its behaviour based on the header's value, using it to build strings is
+enough to cause a negative result on some tests.
+
+A client sending a malformed Host header will only affect itself. This would be a problem if an
+attacker was modifying (poisoning) a valid request on its way to us, but if the attacker could do
+that it would have observed a valid API key and TLS certificate, plus it would be able to pollute
+our responses on their way back to the client, so it would hardly bother with this attack.
+
+This class of vulnerability is a problem when there is an HTTP cache between client and server.
+This is never the case for program interfaces.
 
 == Appendix: Privilege table
 
-This is not the complete list! See the topic 'Which Operator Privileges
+This is not the complete list of privileges! See the topic 'Which Operator Privileges
 you require' in the Configuration Client’s online help for more.
 
 Remember that privileges lie on divisions, not on items, so when this
 table says you need a privilege on some item, take it to mean that you
-need that privilege on the division containing that item, or one of that
+need that privilege on the division containing that item, or (because
+every division inherits the privileges of its parent) one of that
 division’s ancestors.
 
 [cols="30%,70%",stripes=even]
@@ -3367,25 +3603,28 @@ division.
 
 |View all cardholder data
 |'View Cardholder' or any of the cardholder editing privileges on the cardholder’s division, plus
-'View Cardholder Notes' reveals notes, 'View Lockers and Assignments' adds locker detail.
+'View Cardholder Notes' reveals notes, and 'View Lockers and Assignments' adds locker detail.
+
+|View cardholder PDF values
+|'View Cardholder' or any of the cardholder editing privileges on the cardholder’s division, plus
+your operator group needs to give you 'view' or 'edit' access to the PDF, or the PDF's default
+privilege must be 'view' or 'edit'.
 
 |Create cardholders, but not modify them.
-|'Create Cardholders' on the
-cardholder’s division.
+|'Create Cardholders' on the cardholder’s division.
 
 |Create and edit cardholders, except their notes and operator settings.
 |'Create and Edit Cardholders' on the cardholder’s division.
 
 |Edit cardholders, except their notes and operator settings.
-|'Edit
-Cardholders' on the cardholder’s division.
+|'Edit Cardholders' on the cardholder’s division.
 
 |Edit cardholder notes.
 |One of the privileges that lets you edit cardholders as well as either of 'Add Cardholder Notes' or
 'Edit Cardholder Notes' on the cardholder’s division. It is different in the thick clients: there,
 one of the last two is enough.
 
-|Modify cardholder group memberships.
+|Modify cardholder access group memberships.
 |One of the privileges that lets you edit cardholders on the cardholder’s division plus 'Modify
 Access Control' on the group’s division. 'Modify Access Control' on the group’s division is enough
 in the thick clients.
@@ -3393,23 +3632,23 @@ in the thick clients.
 |Change a cardholder’s location.
 |'View Cardholder' on the cardholder, and 'Manage Cardholder Location' on the target access zone’s
 division, when you are moving the cardholder into an access zone, otherwise any division, when you
-are moving the cardholder outside the system.By the way: collecting access zones normally requires
+are moving the cardholder outside the system.  By the way: collecting access zones normally requires
 the RESTStatus licence, but there is a variant of that call that returns just the zones your
 operator is allowed to move cardholders to that only requires the RESTCardholders licence.
 
 |Assign a card to a cardholder.
-|One of the three privileges that lets you edit cardholders on the cardholder’s division and on the
-card type’s division.
+|One of the privileges that lets you edit cardholders ('Create' or 'Create and Edit') on the
+cardholder’s division and on the card type’s division.
 
 |View assignable card types at `/api/card_types/assign`
-|One of the 'Edit cardholder' privileges on the card type’s division.
+|One of the 'Edit Cardholder' privileges on the card type’s division.
 
 |View card types at '/api/card_types'
-|'View site' or 'Configure site' on the card type’s division. The privileges that let you create or
-edit cardholders also reveal PIV types.’
+|'View Site' or 'Configure Site' on the card type’s division. The privileges that let you create or
+edit cardholders also reveal PIV types.
 
 |Change locker assignments.
-|One of the privileges that lets you edit cardholders on the cardholder’s division plus 'Manage
+|A privilege that lets you edit cardholders on the cardholder’s division plus 'Manage
 Locker Assignments' on the locker’s division. 'Manage Locker Assignments' on the locker’s division
 is enough in the thick clients.
 
@@ -3418,9 +3657,25 @@ is enough in the thick clients.
 Card' privilege has no effect on current versions of the REST API. In the thick clients you do not
 need edit privileges on the cardholder if you have 'Disable Card'.
 
+|Change a card's PIN.  (Not yet implemented in the API)
+|"Allow re-printing and re-encoding" or "Print/preview & encode card" or "Edit cardholders" or one
+of the privileges that let you edit a cardholder (which in 8.80 are "Edit cardholders", "create and edit cardholders", and of course "Advanced user").
+
 |De-authorise a cardholder.
 |'De-authorise Cardholder' or one of the privileges that lets you edit cardholders on the
-cardholder’s division.
+cardholder’s division.  There is a bug in versions up to and including 8.70 that means you need
+'Edit Cardholders' to de-authorise a cardholder.  'De-authorise Cardholder' works on its own in 8.80
+and later.
+
+|Delete a cardholder.
+|'Delete cardholders' on the cardholder's division.  Not 'Create Cardholders', 'Create and Edit
+ Cardholder', or 'Edit Cardholder'.
+
+|Redact a cardholder's events.
+|'Delete Cardholder History' on the cardholder's division.
+
+|Redact a cardholder.
+|'Delete Cardholder History' and 'Delete Cardholders' on the cardholder's division.
 
 |Edit a relationship between cardholders.
 |One of the privileges that lets you edit cardholders on the cardholder’s division and on the role’s
@@ -3428,86 +3683,88 @@ division.
 
 |View a cardholder’s operator configuration
 |'View Operators' or one of the privileges that let you modify an operator, such as 'Edit Operators'
-or 'Enable/disable Operator'
+or 'Enable/Disable Operator'.
 
 |View operator groups
-|'Edit Operator Groups' or 'View Operator Groups'
+|'Edit Operator Groups' or 'View Operator Groups'.
 
 |Change a cardholder’s operator groups
-|'Modify Operator Group Membership'
+|'Modify Operator Group Membership'.
 
 |View PDF definitions at `/api/personal_data_fields`
 |'View…' or 'Edit Personal Data Definitions' on the PDF’s division.
 
 |View events at `/api/events`
 |'View Events and Alarms' or any of the privileges that allow processing alarms, on the division of
-the source of the event or alarm.
+the event or alarm. +
+Or (in 8.70) 'View Cardholder Events' on the division of the cardholder related to the event and on
+the event's division.
 
 |Acknowledge, process, or mark alarms as viewed.
-|'Edit Alarms' on division of the source of the event or alarm.
+|'Edit Alarms' on division of the event or alarm.
 
 |Create new events (8.10+)
-|'Create Alarms and Events' on the division of the source of the event, if you set a source, or any
+|'Create Events and Alarms' on the division of the source of the event, if you set a source, or any
 division if you did not set a source.
 
 |List access groups.
-|'View access groups' or 'edit access groups' on the access group’s division.
+|'View Access Groups' or 'Edit Access Groups' on the access group’s division.
 
 |List competencies.
-|'View site' or 'Edit site'.
+|'View Site' or 'Edit Site'.
 
 |Receive schedule hrefs in an access group
-|'View Schedules' on the schedule’s division. 'View site', 'Configure site', and 'Edit site' will
+|'View Schedules' on the schedule’s division. 'View Site', 'Configure Site', and 'Edit Site' will
 not do it.
 
 |List access zones and receive their hrefs in other results
-|'Edit site', 'View site', or 'Override' on the access zone’s division.
+|'Edit Site', 'View Site', or 'Override' on the access zone’s division.
 
 |Override an access zone’s mode.
 |'Override' on the zone’s division.
 
 |List alarm zones
-|'Edit site', 'View site', or 'Override' on the alarm zone’s division.
+|'Edit site', 'View Site', or 'Override' on the alarm zone’s division.
 
 |List doors
-|'Edit site', 'View site', or 'Override - open door' on the door’s division.
+|'Edit site', 'View Site', or 'Override - Open Door' on the door’s division.
 
 |Override doors
-|'Override - open door' on the door’s division.
+|'Override - Open Door' on the door’s division.
 
 |List fence zones
-|'Edit site', 'View site', or 'Maintenance override' on the fence zone’s division.
+|'Edit site', 'View Site', or 'Maintenance Override' on the fence zone’s division.
 
 |Override fence zones
 |'Maintenance override' on the fence zone’s division.
 
 |List inputs
-|'Edit site', 'View site', 'Maintenance override' on the input’s division.
+|'Edit Site', 'View Site', 'Maintenance Override' on the input’s division.
 
 |List macros
-|'View site', 'Run macros', or 'Schedule and run macros' on the macro’s division.
+|'View Site', 'Run Macros', or 'Schedule and Run Macros' on the macro’s division.
 
 |List outputs
 |'Edit site', 'View site', or 'Override' on the output’s division.
 
 |List day categories
-|'Configure site', 'Edit schedules', 'View site'.  Day categories are divisionless, so having one of
-those privs on any division is enough. 'View schedules' is true to its word: it will not show you
+|'Configure Site', 'Edit Schedules', 'View Site'.  Day categories are divisionless, so having one of
+those privs on any division is enough. 'View Schedules' is true to its word: it will not show you
 day categories.
 
 |List schedules
-|'View schedules', 'Edit schedules', 'Schedule access zone' (though the last one only gives you
+|'View Schedules', 'Edit Schedules', 'Schedule Access Zone' (though the last one only gives you
 access to access zone schedules, not the other five types).
 
 |Create, edit, and delete schedules.
-|'Edit schedules'.
+|'Edit Schedules'.
 
 |List elevator groups
-|'Modify Default Floors' is probably the one you want. 'View site' lets you see elevator groups, but
+|'Edit Passenger Details' is probably the one you want. 'View Site' lets you see elevator groups, but
 might not let you use them on a cardholder.
 
 |Set a cardholder’s default floors (for calling elevators)
-|'Modify Default Floors'
+|'Edit Passenger Details'.
 
 |Run a macro at '/api/macros/id/run'
 |'Run Macros' or 'Schedule & Run Macros' on the macro’s division.
@@ -3517,7 +3774,7 @@ might not let you use them on a cardholder.
 is not enough to shunt or unshunt an item.
 
 |View a division’s visitor management configuration, and view receptions
-|'View Site', 'Edit Site', 'View Visits', 'Edit Visits', or 'Manage Receptions'
+|'View Site', 'Edit Site', 'View Visits', 'Edit Visits', or 'Manage Receptions'.
 
 |View a visit
 |'View' or 'Edit Visits'. 'Manage Receptions' will not do it.
@@ -3546,7 +3803,7 @@ head-end events (i.e., those that did not come from a controller),
 * (in 8.30) the door on guard tour events, and
 * (in 8.40) the item that an operator modified.
 
-In 8.30 the following are absent from the list of items related to an
+At time of writing (8.30), the following are absent from the list of items related to an
 event: locker bank and locker, door (unless it is a guard tour event),
 missing competency, car park, and car park space. In practice that is
 rarely a problem since those items are often the event’s source, and
@@ -3578,8 +3835,7 @@ It also gives read-only access to supporting items:
 * roles,
 * lockers,
 * (in 8.10) PDF definitions,
-* (in 8.50) default elevator floors, and (hopefully) operator
-privileges.
+* (in 8.50) default elevator floors, and operator privileges.
 
 8.20 allows moving cardholders between access zones. To support that it
 added a call to the access zones controller that requires the
@@ -3596,6 +3852,9 @@ all read-only fields.
 8.50 adds views of operator groups, receptions, and visitor management
 settings, and read-write access to visits and cardholders’ operator and
 elevator settings.
+
+8.80 adds cardholder redaction:  scrubbing a person's activity and identifying information out of
+the database to help with privacy protection regulations.
 
 Car parks remain on the roadmap.
 
@@ -3627,7 +3886,7 @@ licence, to the RESTStatus licence.
 schedules. You can manage the day categories and times on a schedule,
 but not which items it affects.
 
-Day categories are divisionless, which lead to a slight change in the
+Day categories are divisionless, which led to a slight change in the
 `/items` controller: divisionless items did not appear there before
 8.50; now they do (subject to privilege checks, of course).
 

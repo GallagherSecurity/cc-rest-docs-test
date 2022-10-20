@@ -38,6 +38,38 @@ info:
     The body of this document clearly indicates when recent features arrived in the API so that
     readers with older versions of Command Centre know not to expect them.
 
+    #### Alarms, events, and items API changes on the roadmap
+
+    * BREAKING CHANGE:  a future version will require that the operator has the 'Create Events and
+      Alarms' privilege in the division of the source item, if your request specifies a source item.
+      Current versions only require that the operator has that privilege on at least one division.
+
+    #### Alarms and events API changes in 8.90
+
+    * To improve the symmetry between events and alarms, they now carry a field `eventType`
+      containing the ID and name of their type.  The `type` field, which has different
+      contents for alarms and events, is now obsolete (but still supported).
+
+    * Alarms contain a new field called `event` containing a link to the corresponding event,
+      mirroring the existing `alarm` field coming the other way from an event.
+
+    * You can request a division's description.  This has been possible since 8.50 but was not
+      certified until 2022, so it gets a mention here.
+
+    #### Alarms and events API changes in 8.70
+
+    * Each event in a page of search results will contain URLs to continue the search after that
+      event.  This is a significant benefit to integrations that extract large pages of events and
+      may encounter a problem mid-page, and have to resume without loss or duplication later.
+
+    * A new privilege 'View Cardholder Events' grants visibility of an event if the operator has the
+      privilege in both the event's division and the event's cardholder's division.  This allows a
+      site to create a REST client that can monitor selected cardholders' movements through selected
+      areas, but cannot see any other activity in those areas.
+
+    * You may now use the `relatedItem` query parameter to find events that are associated with
+      any item.
+
     #### Alarms and events API changes in 8.60
 
     * Card numbers on Bluetooth (mobile) and PIV card events are now full-length.  Mobile numbers
@@ -57,6 +89,8 @@ info:
     * You can view any item's notes.  You have been able to for a while now, but it was missing from
       this document.
 
+    * You can request a division's description.
+
     #### Alarms and events API changes in 8.40
 
     - You may now use the `fields` query parameter to tailor the fields that come back for events
@@ -68,7 +102,7 @@ info:
 
     - All operator events now contain the operator's name at the time.
 
-    - All events now contain the name of the source item's division.
+    - All events now contain the name of the event's division.
 
     - The [item search](#operation--api-items-get) can now filter multiple item types.
 
@@ -111,12 +145,12 @@ tags:
 
     Use these methods to download, monitor, and manage Command Centre alarms.
 
-    ### Use cases
+    ### Alarm use cases
 
     #### Downloading and managing unprocessed alarms
     1. `GET /api`
-    2. Follow the link at `features.alarms.alarms`.  You will receive up to 100 alarms,
-       each containing links to its management functions.
+    2. Follow the link at `features.alarms.alarms` [↪](#operation--api-alarms-get).  You will
+       receive up to 100 alarms, each containing links to its management functions.
     3. If step 2 returned results and there is a link at `next.href`, follow it and
        repeat.
 
@@ -150,48 +184,99 @@ tags:
     it carries some changeable state and a log of activity and comments, but the underlying event
     never changes.
 
-    ### Use cases
+    The API only returns events that are still in Command Centre's database.  It will not return
+    events that have been removed, even if they are in an archive file.
+
+    ### Event use cases
 
     #### Downloading the entire event database
     1. `GET /api`
-    2. Follow the link at `features.events.events.href`.
-    3. Process the events you receive in that call.
+    2. Follow the link at `features.events.events.href` [↪](#operation--api-events-get).  You
+       can add query parameters to alter the search.  If you are running 8.70 or later and there
+       is a danger that you might encounter a problem while processing a batch of events you should
+       also use `fields` to get the `next` link for each event.  Note that this is different from
+       the `next` link you receive at the end of each result set.
+    3. Process the events you receive in that call.  If you asked for the `next` field, write the
+       link for each event you successfully process to disk before attempting the next one.  Then,
+       if the worst happens, your client can read that link from disk and pick up where it left off.
     4. If there were results, follow the link at `next.href` and repeat.
 
-    If you then wish to stay up to date, switch to following the link at `updates.href` in
-    the results.
+    If you then wish to stay up to date, switch to following the link at `updates.href`
+    [↪](#operation--api-events-updates-get) in the results.  That call will block until more
+    events arrive, or a minute passes (approximately).
 
     #### Downloading the most recent events
     1. `Get /api`
-    2. Take the link at `features.events.events.href` and append `previous=true&top=20`.  Add the
-       appropriate query separator '?' or '&' first, depending on whether there is a query parameter
-       in the URL already, and change the 20 as appropriate.  The default is 1000, which is probably
-       more than you want.
+    2. Take the link at `features.events.events.href` [↪](#operation--api-events-get) and
+       append `previous=true&top=20`.  Add the appropriate query separator `?` or `&` first,
+       depending on whether there is a query parameter in the URL already, and change the 20 as
+       appropriate.  The default is 1000, which is probably more than you want.
     3. Process the events you receive in that call.
     4. Follow the link at `previous.href` to get earlier events, or `next.href` or `updates.href`
-       for later events.  The latter is a long poll, which means that if no events are ready when
+       for later events.  The last is a long poll, which means that if no events are ready when
        you make the call it will block until new events arrive.
 
-    #### Receiving new events as they occur
+    #### Reporting on events over a period.
     1. `GET /api`
-    2. Follow the link at `features.events.updates.href`.  That will block until an event occurs.
-    3. Process the events you receive in that call.  Often there is only one - the first that
-    arrived after you made the call.
+    2. Follow the link at `features.events.events.href` [↪](#operation--api-events-get) appending
+       `after=2017-01-01Z&before=2017-02-01Z` or whatever timestamps are appropriate (after the
+       correct query separator, `?` or `&`).
 
-    4. Keep following the link at `updates.href` in the results.  It will return immediately if
-    there are new events waiting, or it will block until new events arrive.  Sleep a little between
-    each call to reduce chatter.
+    Remember that some remote systems take their time sending events to Command Centre, so
+    do not be too hasty running your reports.  If you fire them off at the stroke of
+    midnight, you may miss events that occurred before midnight but have not yet arrived
+    at Command Centre.
+
+    #### Receiving new events as they occur, starting from now
+    1. `GET /api`
+    2. Follow the link at `features.events.updates.href`
+       [↪](#operation--api-events-updates-get) adding query parameters containing your search
+       terms.  The call will block until at least one matching event arrives at the server.
+    3. Process the events you receive in that call.  Often there is only one:  the first that
+       arrived after you made the call.
+    4. Sleep to reduce load on the server.
+    5. Loop, following the link at `updates.href` after processing each batch of events.  It will
+       return immediately if there are new events waiting, or it will block until new events arrive.
+       Follow the advice in [downloading the entire event
+       database](#downloading-the-entire-event-database) about keeping track of your position if you
+       might encounter a problem writing events mid-batch.  Note that that advises using the `next`
+       field, but you will be using the `updates` field, which is the same thing in long-poll form.
+
+    #### Receiving new events as they occur, starting from now, with no long polls
+    1. `GET /api`
+    2. Follow the link at `features.events.events.href` [↪](#operation--api-events-get) and append
+       `previous=true&top=1`.  Add the appropriate query separator `?` or `&` first, depending on
+       whether there is a query parameter in the URL already.  The call will return one event (which
+       you can ignore) and a `next` link you'll need later.
+    5. Sleep and loop, following the link at `next.href` after processing each batch of events.  It
+       will return immediately whether or not there are new events waiting.  Follow the advice in
+       [downloading the entire event database](#downloading-the-entire-event-database) about keeping
+       track of your position if you might encounter a problem writing events mid-batch.
+
+    #### Receiving new events as they occur, starting in the past
+    1. `GET /api`
+    2. Follow the link at `features.events.events.href` [↪](#operation--api-events-get) appending
+       the query parameter `after=2021-05-08Z` (or whatever timestamp is appropriate).
+    3. Process the events you receive in that call.
+    4. Sleep to reduce load on the server.
+    5. Loop, following the link at `updates.href` after processing each batch of events.  It will
+       return immediately if there are new events waiting, or it will block until new events arrive.
+       Follow the advice in [downloading the entire event
+       database](#downloading-the-entire-event-database) about keeping track of your position if you
+       might encounter a problem writing events mid-batch.  Note that that advises using the `next`
+       field, but you will be using the `updates` field, which is the same thing in long-poll form.
 
     #### Searching for events related to particular cardholders
     1. `GET /api`
 
-    2. Follow the link at `features.items.items.href`, adding `name="your_cardholder_name"&type=1`
-       to the query after the appropriate separator ('?' or '&').
+    2. Follow the link at `features.items.items.href` [↪](#operation--api-items-get), adding
+       `name="your_cardholder_name"&type=1` to the query after the appropriate separator (`?` or
+       `&`).
 
        The 'items' controller necessary for that step is available with the RESTEvents licence.  If
        you also have the RESTCardholders licence you could use the link at
-       `features.cardholders.cardholders.href` instead, adding a separator and
-       `name="your_cardholder_name"`.
+       `features.cardholders.cardholders.href` [↪](cardholders.html#operation--api-cardholders-get)
+       instead, adding a separator and `name="your_cardholder_name"`.
 
        In either case, remove the quotes if you want a substring search and can handle more than
        one cardholder in the results.
@@ -199,37 +284,42 @@ tags:
     1. Extract the item ID of your cardholder or cardholders from that page, repeating as
        necessary for additional cardholders.
 
-    1. Follow the link on the `/api` page at `features.events.events.href` appending the separator
-       and `cardholder=XX` or `cardholder=XX,YY,ZZ` with the cardholders' IDs.
+    1. Follow the link on the `/api` page at `features.events.events.href`
+       [↪](#operation--api-events-get) appending the separator and `cardholder=XX` or
+       `cardholder=XX,YY,ZZ` with the cardholders' IDs.
 
     To further improve the efficiency of your search, filter by event types and a time
     range.
 
+    #### Searching for events that indicate movement
+
+    If your server is running 8.70 or later give your operator the 'View cardholder events'
+    privilege instead of 'View events'.  Then request all events, and the server will only send you
+    movements.
+
+    If your server is running 8.60 or earlier, use the search filter
+    `types=20001,20002,20003,20047,20107,42415`.
+
     #### Searching for events coming from other items
 
     Events such as 'access granted' and 'zone count maximum' come from doors and access zones.  To
-    search for them, follow the same process as the previous use case but use the `source` filter
-    parameter instead of `cardholder`.  If you have the RESTStatus licence (added in v8.00), you can
-    use [that API](rest.html) to search for access zones, alarm zones, fence zones, macros, outputs,
-    doors, and (in 8.10) inputs.  If you do not, or if your source is not one of those types, use
-    the [items API](#tag-Items) with a suitable `type` filter.
+    search for them, follow the same process as the previous use case (getting cardholder events)
+    but use the `source` filter parameter instead of `cardholder`.  It will limit the results to
+    just those events that came from the items you gave in the query.  If you have the RESTStatus
+    licence (added in v8.00), you can use [that API](rest.html) to search for access zones, alarm
+    zones, fence zones, macros, outputs, doors, and (in 8.10) inputs.  If you do not, or if your
+    source is not one of those types, use the [items API](#tag-Items) with a suitable `type` filter.
 
-    #### Reporting on events over a period.
+    You can also use the `type` parameter to limit the events to particular event types.  By doing
+    this you can (for example) subscribe to 'access granted' events from a collection of doors.
 
-    1. `GET /api`
-
-    2. Follow the link at `features.events.updates.href` appending
-       `after=2017-01-01Z&before=2017-02-01Z`, or whatever timestamps are appropriate.
-
-    Remember that some remote systems take their time sending events to Command Centre, so
-    do not be too hasty running your reports.  If you fire them off at the stroke of
-    midnight, you may miss events that occurred before midnight but have not yet arrived
-    at Command Centre.
+    New in v8.70, you can also filter by `relatedItem`. Use this to find events related
+    to item or items regardless of the type.
 
     #### Creating a new event
 
     1. `GET /api`
-    2. POST to the link at `features.events.events.href`.
+    2. POST to the link at `features.events.events.href` [↪](#operation--api-events-post).
 
     There are some rules around creating events, so you should first have a careful read of the
     [POST documentation](#operation--api-events-post).
@@ -255,14 +345,12 @@ tags:
       sends to you.  Not only will it save bandwidth, but it will save the server looking up all
       those values and serialising them for you.
 
-    * If you have reached the head of the event queue and are using the `updates` link to keep up to
-      date, set `deadline` high and sleep between calls for as long as your requirements allow.
-      Doing the first will reduce unnecessary chatter between you and Command Centre when nothing is
-      happening, and the second will improve the likelihood of your collecting more than one event
-      when it is busy.<br>For example, if Command Centre is generating two events per second and you
-      do not sleep between REST calls, you will be calling `updates` twice per second for one event
-      each time.  However if you sleep for ten seconds after each call you will receive 20 events at
-      a time, saving CPU and I/O.
+    * If you are using the `updates` link to keep up to date with events, sleep between calls for as
+      long as your requirements allow.  Doing that will improve the likelihood of your collecting
+      more than one event when it is busy.<br>For example, if Command Centre is generating ten
+      events per second and you do not sleep between REST calls, you will be calling `updates` ten
+      times per second for one event each time.  However if you sleep for two seconds after each
+      call you will receive 20 events at a time, saving CPU and I/O.
 
 - name: Items
   description: |
@@ -345,8 +433,8 @@ securityDefinitions:
 
       Depending on Command Centre's site configuration, its REST API may also require a client
       certificate with each request.  In versions up to and including 8.40 this was controlled by a
-      boolean labelled 'Do not require pinned client certficates' on the 'Web Services' tab of the
-      server properties.  In 8.50 that control's label changed to 'Enable REST Clients with no
+      flag labelled 'Do not require pinned client certficates' on the 'Web Services' tab of the
+      server properties.  In 8.50 that flag's label changed to 'Enable REST Clients with no
       client certificate', and its behaviour changed slightly when turned on.
 
       If off, for all versions of CC, an incoming request's certificate has to match the thumbprint
@@ -355,7 +443,7 @@ securityDefinitions:
       server.
 
       If 'Do not require pinned client certificates' was turned on in versions up to and including
-      8.40, the server did not check any client certificates.  If the same control is turned on in
+      8.40, the server did not check any client certificates.  If that flag is turned on in
       8.50, now relabelled 'Enable REST Clients with no client certificate', it still does not check
       the client certificate if the thumbprint field of the matching REST Client item is blank, but
       if the Client item has a thumbprint, the server will reject connections with the wrong
@@ -372,6 +460,12 @@ securityDefinitions:
       alarm tell you how many failed attempts there have been since the start of the flood.  The
       server will stay in this mode of reduced reporting until several minutes pass without a failed
       connection attempt.
+
+      The most common queries we receive from our integrators relate to their certificate handling.
+      If your client's HTTP client library complains about certificates the first thing to check is
+      Command Centre's alarm list.  If there are 'invalid client certificate' alarms there, your
+      client is not sending the certificate CC is expecting.  If there are no alarms then the client
+      is most likely rejecting the server's certificate.
 
 x-spectacle-topics:
   Documentation suite:
@@ -395,7 +489,7 @@ x-spectacle-topics:
       First, some background on operators, operator groups, and divisions.
 
       To determine your REST client's privileges, the server starts by searching the list of REST
-      Client items in its configuration for the one with the API key in the Authorization header of
+      Client items in its configuration for the one with the API key in the `Authorization` header of
       your request.  Assuming it finds one, it takes the cardholder from that REST Client item.
 
       To be any use at all that cardholder must be a member of at least one operator group.  Being
@@ -408,19 +502,23 @@ x-spectacle-topics:
       _division_.  Divisions are hierarchical, with all divisions (but the root) being a child of
       another.  Multi-server installations have one division tree per server.
 
-      Events are not items, but the server considers them to be in the division of their source
-      item.  Card events, for example, typically use a door as a source item; when an operator
-      modifies an item, the event recording that change uses that operator's workstation as the
-      source item.  Alarms are the same, because they are basically events with a few more fields.
-      A 'door forced' alarm, for example, has the door as the source and an alarm that the server
-      generates when you send a bad API key uses the server itself as the source.
+      Every event and alarm has a division.  It is usually the division of the source item.  Card
+      events or 'forced door' alarms, for example, typically use a door as a source item; when an
+      operator modifies an item, the event recording that change uses that operator's workstation as
+      the source item; the alarm that the server generates when you send a bad API key uses the
+      server item as the source.
+
+      An event's division is not always its source's division.  'Card activated' events have the
+      server as a source item, but take on the cardholder's division so that operators who can see
+      the cardholder can also see when the server activates their cards.
 
       To link privileges to items and events, an operator group contains a list of privileges and a
-      list of divisions.  Its operators enjoy those privileges on all the items that are in those
-      divisions, and therefore all events and alarms that are on those items.  Having a privilege on
-      a division also grants an operator that privilege on that division's descendants.  Therefore,
-      an operator with a privilege on the root division has that privilege on all that server's
-      items and events.
+      list of divisions.  Its operators enjoy those privileges on all the items, events, and alarms
+      that are in those divisions.
+
+      Having a privilege on a division also grants an operator that privilege on that division's
+      descendants.  Therefore an operator with a privilege on the root division has that privilege
+      on all that server's items and events.
 
       A common misconception is that the division an operator is in, or the division an operator
       group is in, have a bearing on the operator's privileges.  They do not.  It is all about the
@@ -577,6 +675,39 @@ x-common-blocks-this-is-made-up:
 
       `?fields=defaults,notes,...`
 
+  notes_this_keyword_can_be_anything: &TYPE_NAME
+    type: string
+    example: "Cardholder"
+    description: |
+      A human-readable name of the item's type, suitable for display.
+
+      This string is translated using the installation's language pack, and Gallagher
+      reserves the right to change item type names in new versions, so you should not do
+      anything with this string except show it to a person.
+
+  eventType_ignored: &EVENTTYPE
+    type: object
+    description: |
+      ID and name of the event's or alarm's type.  There is a long list of them at
+      [/events/groups](#operation--api-events-groups-get).
+
+      Unlike the `type` field, this has the same format in an event as it does in an alarm.
+
+      Added in 8.90.  Because it is a new field, it does not appear by default.  Ask for it using
+      the `fields` parameter.
+
+    properties:
+      id:
+        type: string
+        description: |
+          The alphanumeric ID of the event type.  You can use this ID in the `type` parameter when
+          searching for events with [/events](#operation--api-events-get).
+        example: "23035"
+      name:
+        type: string
+        description: The name of the event type.
+        example: "Forced door"
+
 security:
   - "API key": []
 
@@ -599,12 +730,12 @@ parameters:
     type: string
     required: false
 
-    enum: [ href, id, time, message, source, type, priority, state, active, division, notePresets,
+    enum: [ href, id, time, message, source, type, eventType, priority, state, active, division, notePresets,
     view, comment, acknowledgeWithComment, acknowledge, processWithComment, process, details,
-    history, instruction, cardholder ]
+    history, instruction, cardholder, event ]
 
     description: |
-      Allows you to specify which fields you want in your results.  Separate fields with commas.
+      Sets the fields you want in your results.  Separate fields with commas.
 
       New to 8.40.
 
@@ -614,11 +745,12 @@ parameters:
     type: string
     required: false
     enum: [ defaults, details, cardholder.pdf_*, href, id, serverDisplayName, time, message,
-    occurrences, priority, alarm, operator, source, group, type, division, cardholder,
-    entryAccessZone, exitAccessZone, door, accessGroup, card, modifiedItem, lastOccurrenceTime]
+    occurrences, priority, alarm, operator, source, group, type, eventType, division, cardholder,
+    entryAccessZone, exitAccessZone, door, accessGroup, card, modifiedItem, lastOccurrenceTime,
+    previous, next, updates]
 
     description: |
-      Allows you to specify which fields you want in your results.
+      Sets the fields you want in your results.
 
       This is the list of valid fields for 8.40, but it is different for older server versions, so
       check with the topic [on event field specifiers](#topic-Event-field-specifiers).
@@ -645,6 +777,11 @@ paths:
         processed alarms by finding them in the [event summary](#definition-Event-summary)
         and following its `alarm.href` link to the alarm details.
 
+        Unlike the corresponding method that retrieves events, this call does not take query
+        parameters to filter its results.  You can limit the fields it returns, but it will always
+        return every alarm that your operator can view.  If you wish to restrict it to alarms in
+        certain divisions, give your operator permission to view alarms in only those divisions.
+
         Do not code this URL into your application.  Take it from `alarms.alarms.href` in the
         results of `GET /api`.
 
@@ -663,20 +800,28 @@ paths:
         - Alarms
       summary: Get changes to alarms (or wait)
       description: |
-        Long poll this link for live updates to alarms.  You *must* *not* bookmark or generate this
-        link.  You should only use this call after following it from the `/api/alarms` response, as
-        it uses unspecified query parameters to track state.
+        Long poll this link for live updates to alarms.  It will return the alarms that occurred or
+        changed since the previous call, no matter how long ago that was.  If there are no changes
+        to alarms before a timeout passes (about 30 seconds) the server will return a normal
+        response, except that the `updates` array will be empty.
 
-        This request should always complete succesfully. If there are no alarm updates, the server
-        will return a valid response containing an empty `updates` array. The client should simply
-        follow the `next` link in the poll responses forever.
+        Whether or not the response contained updates the client should follow the `next` link to
+        wait for the next updates.  If your server receives a lot of alarm updates, wait some time
+        between calls to reduce its load.  You will not miss any updates:  each response contains
+        everything that happened since the previous call.
 
         Command Centre does not tell you which alarms were added, removed, or modified. It is up to
         you to match the incoming alarms against your own internal alarm list and determine the
         differences.
 
         Do not code this URL into your application.  Take it from `alarms.updates.href` in the
-        results of `GET /api`, or from `updates` in the results of `GET /api/alarms`.
+        results of `GET /api`, or from `updates` in the results of `GET /api/alarms`, or from `next`
+        in the results of this call.  Do not attempt to interpret or set the `id` query parameter in
+        the URL, as it tracks your progress through the alarm history.
+
+        Assuming you got the URL for this call from the response from another call, and your
+        operator therefore has the privileges required to view alarms, this should always complete
+        succesfully.
 
       parameters:
         - $ref: "#/parameters/alarmfields"
@@ -791,7 +936,7 @@ paths:
         real trouble, so have a good look at the documentation below and the example [POST
         body](#definition-Event-POST-body).
 
-        Events are immutable:  you cannot PATCH them after you create them.
+        Events are immutable:  you cannot PATCH or DELETE them after you create them.
 
         #### Usable event types
 
@@ -814,7 +959,16 @@ paths:
         Every event needs a source item.  You can let the server pick one for you (it will use the
         REST Client item identified by your API key) or you can use any item that has an 'Event
         Response' tab in its Configuration Client window (which is most of them).  Our existing
-        integrations use items like doors, external system items, and DVR cameras.
+        integrations use items like doors, external system items, and cameras.
+
+        Cardholders do not have an 'Event Response' tab so cannot be event sources, but...
+
+        #### Related items
+
+        Along with a source, you can link other items to the events you create.  If you link a
+        cardholder, for example, your events will show on an activity report generated for that
+        cardholder.  To link an item your operator must have a privilege that allows viewing it
+        (such as 'View cardholders' or 'View site').
 
         #### Action plans
 
@@ -900,6 +1054,10 @@ paths:
             response will say so) or operator does not have the 'Create Events and Alarms'
             privilege.
 
+            A future version of Command Centre will reject the POST with a 403 if your event
+            specifies a source item and the operator does not have 'Create Events and Alarms' on
+            that item's division.
+
     get:
       tags:
       - Events
@@ -908,6 +1066,8 @@ paths:
         This returns the next batch of events matching the supplied filters starting
         at the beginning of the database, or at the time specified by the
         `after` parameter.
+
+        For its correct use in various scenarios, see the [use cases](#event-use-cases).
 
         By default the result will contain no more than 1000 events; for
         efficient transfer of large numbers of events you should increase this
@@ -931,25 +1091,26 @@ paths:
         minimum: 1
         maximum: 10000
         default: 1000
-        description: The maximum number of events to return per page.
+        description: Sets the maximum number of events to return per page.
       - name: "after"
         in: query
         required: false
         type: string
         format: date-time
         description: |
-          An ISO-8601 date or date-time string that restricts events to those that occurred at or
-          after this time.
+          Restricts events to those that occurred at or after this time.  It must an ISO-8601
+          date or date-time with a timezone specifier.
       - name: "before"
         in: query
         required: false
         type: string
         format: date-time
         description: |
-          An ISO-8601 date or date-time string that restricts events to those that occurred before
-          this time.  Events that occurred at this exact time (to the second) will not appear in the
-          results.  For example, to collect all events that occurred on 1 January 2017, use
-          `after=2017-01-01Z,before=2017-01-02Z`.  You will not receive any events from 2 January.
+          Restricts events to those that occurred before this time.  It must be an ISO-8601 date or
+          date-time with a timezone specifier.  Events that occurred at this exact time (to the
+          second) will not appear in the results.  For example, to collect all events that occurred
+          on 1 January 2017, use `after=2017-01-01Z,before=2017-01-02Z`.  You will not receive any
+          events from 2 January.
       - name: "source"
         in: query
         required: false
@@ -961,12 +1122,26 @@ paths:
         in: query
         required: false
         type: string
-        description: Restricts events to those whose type has this ID.  Separate multiple IDs with commas.  Use the [event groups call](#operation--api-events-groups-get) to see all event types and groups.
+        description: |
+          Restricts events to those whose type has this ID.  Separate multiple IDs with commas.
+
+          The results may include other event types if you also use the `group` parameter, below.
+
+          Use the [event groups call](#operation--api-events-groups-get) to see all event types and
+          groups.
       - name: "group"
         in: query
         required: false
         type: string
-        description: Restricts events to those with this event group ID.  Separate multiple IDs with commas.  Use the [event groups call](#operation--api-events-groups-get) to see all event types and groups.
+        description: |
+          Restricts events to those with this event group ID.  Separate multiple IDs with commas.
+
+          `group` is ORed with `type`.  In fact it is shorthand for `type=` followed by the IDs of
+          all the event types in the event type groups you list, and the search uses the union of
+          the two lists.
+
+          Use the [event groups call](#operation--api-events-groups-get) to see all event types and
+          groups.
       - name: "cardholder"
         in: query
         required: false
@@ -977,6 +1152,11 @@ paths:
         required: false
         type: string
         description: "Restricts events to those in this division (including its child divisions).  Separate multiple IDs with commas.\n\nExample:  `division=2,101`\n\nA more secure option is to set the operator's privileges so that it only has access to those divisions."
+      - name: "relatedItem"
+        in: query
+        required: false
+        type: string
+        description: "Restrict events to those associated with the item that has this Command Centre ID. Separate multiple IDs with commas.\n\nExample: `relatedItem=3,102`"
       - $ref: "#/parameters/eventfields"
       - name: "previous"
         in: query
@@ -984,9 +1164,9 @@ paths:
         type: boolean
         default: false
         description: |
-          Without this option, the API will return events starting from the epoch.  If you set this
-          to `true`, it will return the most recent events, the last of which will be the latest to
-          arrive at the server.
+          Returns the newest events rather than the oldest.  Without this option the API will return
+          events starting from the epoch, but if you set it to `true` the server will return the
+          most recent events, the last of which will be the latest to arrive at the server.
 
           In both cases you can move backward and forward in arrival time with the 'next' and
           'previous' links.
@@ -999,7 +1179,8 @@ paths:
           Restricts events to those with event IDs greater than this parameter (or less than and
           including, if you set `previous=true`).
 
-          DEPRECATED.  Retain the `next` link in your application instead.
+          INTERNAL USE ONLY.  This is how Command Centre tracks the events you have seen already.
+          Do not set it yourself.  Retain the 'next' or 'updates' link in your application instead.
 
       responses:
         200:
@@ -1014,10 +1195,31 @@ paths:
       - Events
       summary: Get new events (or wait)
       description: |
-        Poll this link to receive events that match the specified filters.  If there are none ready,
-        the call will block until one arrives or a deadline passes.
+        Poll this link to receive new events that match the specified filters.  If there are none
+        ready, the call will block until one arrives or a deadline passes.
 
-        Each response will contain a `next` and an `updates` link, already described.
+        For its correct use in various scenarios, see the [use cases](#event-use-cases).  In
+        particular, sleep between calls to reduce load on the server.
+
+        The way this call picks events is very different from `/api/events`:
+
+        - If you follow the link at `events.updates.href` in the results of `GET /api`, you will
+          receive the first events that arrive after you make the call and that meet your other
+          search criteria.
+
+        - If you follow the `updates` link from the results of `GET /api/events` or `GET
+          /api/events/updates`, the link will contain a bookmark in the `pos` parameter that causes
+          the server to return the first events that arrive or arrived after that bookmark (and that
+          meet your search criteria, of course).
+
+        The response will contain an `updates` link back to the same API call with a new bookmark
+        that will cause it to return the next page of results.
+
+        Each response will also contain a `next` link that will take you to the non-blocking version
+        of the call at [/api/events](#operation--api-events-get).
+
+        However long you wait between calls, following a `next` or `updates` link will always return
+        the first events that arrived after your previous call.
 
         Do not code this URL into your application.  Take it from `events.updates.href` in the
         results of `GET /api`, or from `updates` in the results of `GET /api/events`.
@@ -1029,7 +1231,7 @@ paths:
         type: integer
         minimum: 1
         maximum: 10000
-        description: The maximum number of events to return per page.
+        description: Sets the maximum number of events to return per page.
       - name: "deadline"
         in: query
         required: false
@@ -1037,27 +1239,52 @@ paths:
         minimum: 1
         maximum: 86400
         description: |
-          The number of seconds to wait for an event, if none are ready when you make the call.  If
-          none arrive during that time, the result set will be empty. If not specified, a default
-          will apply.
+          Sets the number of seconds to wait for an event, if none are ready when you make the call.
+          If none arrive before this number of seconds pass the result set will be empty. If not
+          specified, a default will apply.
       - name: "after"
         in: query
         required: false
         type: string
         format: date-time
         description: |
-          An ISO-8601 date or date-time string.  Restricts events to those that occurred at or after
-          this time.  Because 'updates' links carry their own bookmark, it is unusual to use this
-          parameter in an 'updates' call.
+          Removes events that occurred before this time from the result set.  It must be an ISO-8601
+          date or date-time with a timezone.
+
+          It is unlikely you will add this parameter to `GET /api/events/updates`.  However it is a
+          very useful parameter to [/api/events](#operation--api-events-get), and it will pass from
+          there into the `updates` URL that that call returns.  In that case it has no effect; you
+          can leave it there.
+
+          This will not push the start time of the search into the past.  As described above, the
+          search will start at the time of the call or after the last event in a previous result set
+          depending on the `pos` parameter.  The `after` parameter reduces the results to those
+          events that _arrived_ after the start time of the search and _occurred_ after the `after`
+          timestamp.  Note that an event's arrival time can be different from its occurrence time.
+
       - name: "before"
         in: query
         required: false
         type: string
         format: date-time
         description: |
-          An ISO-8601 date or date-time string.  Restricts events to those that occurred before this
-          time.  If no events arrive with an occurrence time earlier than this parameter, the call
-          will time out.
+          Removes events that occurred at or after this time from the result set.  It must be an
+          ISO-8601 date or date-time string with a timezone.
+
+          If no events arrive with an occurrence time earlier than this parameter, the call will
+          eventually time out.
+
+          It is unlikely you will want this parameter in a call to `GET /api/events/updates`.  It
+          puts an end-date on the search, which is a very odd thing to do on a call intended to keep
+          the caller up to date with events as they arrive.  If you find yourself using it, you may
+          wish to reconsider your approach.
+
+          If you only wish to receive events up to a point in history, use the `before` parameter on
+          [/api/events](#operation--api-events-get), following its `next` block in a loop until you
+          get an empty result.  If you only wish to receive events up to a point in the future, use
+          `/api/events` again but loop until you receive an event with a date beyond your stopping
+          point.
+
       - name: "source"
         in: query
         required: false
@@ -1067,12 +1294,26 @@ paths:
         in: query
         required: false
         type: string
-        description: Restricts events to those with this event type ID.  Separate multiple IDs with commas.  Use `/api/events/groups` to see all of Command Centre's event types and groups.
+        description: |
+          Restricts events to those with this event type ID.  Separate multiple IDs with commas.
+
+          Use `/api/events/groups` to see all of Command Centre's event types and groups.  Event
+          types names and IDs rarely change, but the ID is the more stable of the two.  Therefore it
+          is probably safer to use that API for reference then hard-code the event type IDs you find
+          there into your application.
       - name: "group"
         in: query
         required: false
         type: string
-        description: Restricts events to those with this event group ID.  Separate multiple IDs with commas.  Use `/api/events/groups` to see all of Command Centre's event types and groups.
+        description: |
+          Restricts events to those with this event group ID.  Separate multiple IDs with commas.
+
+          The documentation for `/api/events/groups` advises when to filter for event groups instead
+          of event types.
+
+          Like event types, hard-coding the ID into your application is probably stabler (and
+          definitely simpler) than searching for it at runtime.
+
       - name: "cardholder"
         in: query
         required: false
@@ -1090,9 +1331,10 @@ paths:
         type: integer
         minimum: 0
         description: |
-          Restricts events to those with event IDs greater than this parameter.  DEPRECATED.  This
-          is how Command Centre tracks the events you have seen already, but you should not set it
-          yourself.
+          Restricts events to those with event IDs greater than this parameter.
+
+          INTERNAL USE ONLY.  Retain the 'next' or 'updates' link in your application instead.  This
+          is how Command Centre tracks the events you have seen already.  Do not set it yourself.
       responses:
         200:
           description: Success
@@ -1124,7 +1366,7 @@ paths:
         404:
           description: |
             That is not the URL of an event, or it is but you do not have privileges to read events
-            in its source item's division.
+            in its division.
 
   /api/events/groups:
     get:
@@ -1136,10 +1378,13 @@ paths:
         obtaining IDs to use in event filters.  There are about 1000 event types, divided into
         about 150 groups.  Each event type is in one group.
 
-        Event type identifiers do not often change between Command Centre versions, but group
-        assignments do.  Therefore if you choose to use type groups in event filters we advise using
-        this function at run-time rather than at build-time.  If you hard-code a group ID into your
-        application you run the risk of event filters not later versions.
+        Event type identifiers do not often change between Command Centre versions, but the types in
+        each group do.  Therefore if you choose to use groups in filters rather than types you may
+        find that your filter catches more or fewer event types after a Command Centre upgrade.
+        That may be desirable if, for example, you are intested in a class of event and you want to
+        grow with CC as it grows new features.  If you want to catch all 'access denied's, for
+        example.  We frequently add new varieties of 'access denied'.  If you do not want that, use
+        types rather than groups.
 
         Do not code this URL into your application.  Take it from `events.eventGroups.href` in the
         results of `GET /api`.
@@ -1174,7 +1419,7 @@ paths:
       - name: "top"
         in: query
         required: false
-        description: The maximum number of divisions to return per page.
+        description: Sets the maximum number of divisions to return per page.
         type: integer
         minimum: 1
       - $ref: "cardholdersApi.yaml#/parameters/sort"
@@ -1241,19 +1486,19 @@ paths:
         required: false
         type: string
         description: |
-          Only return items that are in these divisions or their subdivisions.  Use the divisions'
+          Only returns items that are in these divisions or their subdivisions.  Use the divisions'
           short alphanumeric IDs, separateed by commas.
       - name: "type"
         in: query
         required: false
         type: string
         description: |
-          Only return items that are of a type with this ID.  In versions up to 8.30 you could only
+          Only returns items that are of a type with this ID.  In versions up to 8.30 you could only
           specify one, but in 8.40 and later this can be a comma-separated list.
       - name: "top"
         in: query
         required: false
-        description: The maximum number of items to return per page.
+        description: Sets the maximum number of items to return per page.
         type: integer
         minimum: 1
         default: 100
@@ -1324,7 +1569,7 @@ paths:
       summary: Subscribe to status updates
       description: |
         Creates a subscription to status changes.  You POST a list of item IDs and the server
-        returns the current state of those items plus a link.  When you GET that link some time
+        returns the status flags of those items plus a link.  When you GET that link some time
         later the server will return the items that changed state between the two calls.
 
         If you do not GET the link within thirty seconds of the POST returning, the server will drop
@@ -1332,7 +1577,13 @@ paths:
 
         Your operator must have view privileges on every item in the subscription.
 
+        The subscription notices changes in state, not in configuration, so an operator modifying an
+        item will not cause anything to come out of this API unless the change in configuration also
+        causes a change in state.
+
         Because this call returns the status of items, this call requires the RESTStatus licence.
+
+        Added in 8.30.
 
       parameters:
         - name: "name not rendered for body params"
@@ -1351,10 +1602,12 @@ paths:
           example: {
             "updates": [
               {
+                "id": "508",
                 "status": "Controller offline. 62 message(s) pending.",
                 "statusText": "Controller offline.\n62 message(s) pending.",
                 "statusFlags": [ "controllerOffline" ]
               }, {
+                "id": "526",
                 "status": "Disarmed.",
                 "statusText": "Disarmed.",
                 "statusFlags": [ "disarmed" ]
@@ -1366,7 +1619,7 @@ paths:
           }
 
         400: { description: The server could not parse the request body.  Check your JSON. }
-        401: { description: The operator does not have privilege to view the monitored items. }
+        401: { description: The operator does not have privilege to view the monitored items.  This will change to 403 in a future version of Command Centre. }
         403: { description: The site does not have the RESTStatus licence. }
 
     get:
@@ -1394,13 +1647,21 @@ paths:
 
         ...plus the necessary exception handling, of course.
 
+        Added in 8.30.
+
+        Note that the first time you make this GET request it will return all the activity that came
+        back from the POST.  There are other cases where the GET might return data you have seen
+        already (when an override is sent to an item, or some aspect of an item changes that your
+        operator does not have the privilege to view, for example).  These two behaviours are not
+        harmful, but also not particularly helpful, so future versions may differ.
+
       parameters:
         - name: "bookmark"
           in: query
           required: true
           type: string
           description: |
-            The identifier of your subscription plus a marker for your progress though it.  You do
+            Identifies your subscription and your position in the change list.  You do
             not need to set this parameter:  it will be in the link that the server sends back to
             you.
 
@@ -1520,7 +1781,9 @@ definitions:
         description: |
           The name of this alarm's event type.
 
-        example: "Door forced"
+        example: "Forced door"
+      eventType:
+        <<: *EVENTTYPE
       priority:
         type: integer
         description: Numeric priority.  9 is critical and 0 is not an event.
@@ -1538,12 +1801,29 @@ definitions:
         example: false
       division:
         type: object
-        description: The division entity representing the division of the item. GET the href for full details.
+        description: The division entity representing the division of the alarm. GET the href for full details.
         properties:
           href:
             type: string
             format: url
             example: "https://localhost:8904/api/divisions/2"
+      event:
+        type: object
+        description: |
+          A block containing a link ("href") to the details page of this alarm's event.  Useful if
+          you want an alarm's related items.
+
+          This mirrors an event's `alarm` field, which comes the other way.
+
+          Added in 8.90.  Not returned by default - you need to ask for it using the `fields` query parameter.
+        properties:
+          href:
+            type: string
+            format: url
+            description: |
+              Link to the event page for this alarm.  GET it for the fields found on an event
+              that are not on an alarm.
+            example: "https://localhost:8904/api/events/10135"
       notePresets:
         type: array
         items: 
@@ -1623,7 +1903,7 @@ definitions:
             description: |
               The full alarm details text.  This may be up to 2048 UTF-8 characters, each of which
               could (theoretically) be four bytes long.
-            example: "Door forced"
+            example: "Forced door"
           history:
             type: array
             description: An array of alarm history entries.  Missing if there is no history.
@@ -1699,7 +1979,8 @@ definitions:
         type: object
         description: |
           Follow this link to make a non-blocking call to collect the previous page of events (in
-          order of arrival).  It will return an empty page if no more events are available.
+          order of arrival).  It will return an empty page if you have already received the first
+          event in the database.
         properties:
           href:
             type: string
@@ -1795,7 +2076,7 @@ definitions:
       alarm:
         type: object
         description: |
-          If an event is of a high enough priority to consider it an alarm, this object will contain
+          If an event is also an alarm, this object will contain
           its state and a link to its details page in the alarms controller.
 
           Only the first event in a group (see the `occurrences` field) can become an alarm.
@@ -1881,16 +2162,21 @@ definitions:
             type: string
             description: The name of the event type.
             example: "Operator logon failed"
+      eventType:
+        <<: *EVENTTYPE
+        example:
+          id: "601"
+          name: "Operator logon failed"
       division:
         type: object
         description: |
           ID, name, and href of the event's division (which is the division of the event's source
-          item).
+          item, for most event types).
         properties:
           id:
             type: string
             description: |
-              The alphanumeric ID of the source's division.  Search for other events from items in
+              The alphanumeric ID of the event's division.  Search for other events from items in
               the same division as this example by putting `division=2` in the query parameters.
             example: "2"
           href:
@@ -2105,6 +2391,64 @@ definitions:
                 description: |
                   A human-readable name of the item's type, suitable for display.
 
+                  This string is translated using the installation's language pack, and Gallagher
+                  reserves the right to change item type names in new versions, so you should not do
+                  anything with this string except show it to a person.
+
+      next:
+        description: |
+          The URL to the search that will return the page of events following this one.  It will
+          include your search filters and pagination parameters.
+
+          This link is intended for integrations that take great gulps of events and send them to a
+          downstream system.  If it suffers a problem in the middle of a result set, it needs to
+          record where in the event trail it got up to so that when it restarts it will not miss or
+          duplicate events.
+
+          The `next` link on the last event in a result set will be the same as the `next` link
+          outside the results.
+
+          New to 8.70.
+        type: object
+        properties:
+          href:
+            type: string
+            format: url
+            example: "https://localhost:8904/api/events?pos=61320"
+      previous:
+        description: |
+          The URL to the search that will return the page of events preceding this one.  It will
+          include your search filters and pagination parameters.
+
+          The `previous` link on the first event in a result set will be the same as the `previous`
+          link outside the results, since they both indicate the latest event that preceded the
+          result set.
+
+          New to 8.70.
+        type: object
+        properties:
+          href:
+            type: string
+            format: url
+            example: "https://localhost:8904/api/events?pos=61320&previous=True"
+      updates:
+        description: |
+          The URL to the [updates](#operation--api-events-updates-get) call that will return the
+          page of events following this one, or wait for one to arrive if there are none.  It will
+          include your search filters and pagination parameters.
+
+          The `updates` link on the last event in a result set will be the same as the `updates`
+          link outside the results, since they both indicate the event that will be at the top of
+          the next result set.
+
+          New to 8.70.
+        type: object
+        properties:
+          href:
+            type: string
+            format: url
+            example: "https://localhost:8904/api/events/updates?pos=61320"
+
   Event detail:
     description: |
       [/api/events/{id}](#operation--api-events--id--get) returns one of these.  It contains
@@ -2137,7 +2481,14 @@ definitions:
     properties:
       type:
         description: |
-          This is the only mandatory field in an event.  Without it, the POST will fail.
+          This is a mandatory field in an event.  Without it, the POST will fail.
+
+          It is mandatory because the server cannot assume a reasonable default.  It can for the
+          others.
+
+          If your server is running 8.90 `eventType` is a synonym.  If you send both a `type` block
+          and an `eventType` block it will use `eventType`.
+
         type: object
         properties:
           href:
@@ -2150,11 +2501,29 @@ definitions:
               IDs 57-66 and 190-209.  Command Centre ships with one event type per group, IDs
               4000-4009 and 6010-6029, but you can create 970 more using the External Event Type
               Configuration utility.
+      eventType:
+        description: |
+          Synonym for `type`, introduced in 8.90.
+        properties:
+          href:
+            type: string
+            format: url
+            example: https://localhost:8904/api/events/types/4000
       source:
         description: |
-          This should be the href of the item you wish to use as the source of your event.  If you
-          do not supply it, Command Centre will use the REST Client item identified by the API key
-          in the Authorization header.
+          This block should contain the href of the item you wish to use as the source of your
+          event.  It can be any site item to which your operator has view access including all
+          hardware, access zones, fence zones, doors, lockers, car parks, servers, external systems,
+          and many other item types.  If you do not supply one Command Centre will use the REST
+          Client item identified by the API key in the `Authorization` header.
+
+          Cardholders cannot be event sources.  To relate a cardholder to your event, use the
+          `cardholder` block.
+
+          Make sure that your operator has the 'Create Events and Alarms' privilege on this item's
+          division.  Future versions of Command Centre will require it.
+
+          The API will use the source's division as the event's division.
         type: object
         properties:
           href:
@@ -2162,10 +2531,8 @@ definitions:
             format: url
             example: https://localhost:8904/api/doors/745
             description: |
-              This can be the href of any site item to which your operator has view access including
-              all hardware items, access zones, fence zones, doors, lockers, car parks, servers,
-              external systems, and many other item types.  Get the href using the API controller
-              for that item type (such as [doors](rest.html#tag-Doors)) or from `/items`.
+              Get the href using the API controller for that item type (such as
+              [doors](rest.html#tag-Doors)) or from `/items`.
       priority:
         type: integer
         minimum: 1
@@ -2362,33 +2729,7 @@ definitions:
         type: array
         description: An array of division objects.
         items:
-          type: object
-          properties:
-            href:
-              type: string
-              format: url
-              description: A self reference.
-              example: "https://localhost:8904/divisions/2"
-            id:
-              type: string
-              description: |
-                The alphanumeric ID of the division.  Use this ID in the `division` filter when
-                requesting events.
-              example: "2"
-            name:
-              type: string
-              description: The division's name.
-              example: "Root division"
-            serverDisplayName:
-              $ref: "cardholdersApi.yaml#/x-common-blocks/server"
-            parent:
-              description: "An object containing an href to the division entity representing the current division's parent. GET the href for full details."
-              type: object
-              properties:
-                href:
-                  type: string
-                  format: url
-                  example: "https://localhost:8904/divisions/2"
+          { $ref: '#/definitions/Division' }
       next:
         description: |
           A site generally does not have too many divisions.  You should be able to collect them all
@@ -2423,6 +2764,10 @@ definitions:
         type: string
         description: The division's name.
         example: "Root division"
+      description:
+        type: string
+        description:  The division's description.  New in 8.50.  Not sent by default;  ask for it with `fields`.
+        example: "Contains all other divisions"
       serverDisplayName:
         $ref: "cardholdersApi.yaml#/x-common-blocks/server"
       parent:
@@ -2609,7 +2954,8 @@ definitions:
               Use this ID in the `type` filter when requesting items if you wish to restrict the
               results to items of a certain type.
             example: "1"
-          name: { type: string, example: "Cardholder" }
+          name:
+            <<: *TYPE_NAME
       serverDisplayName:
         $ref: "cardholdersApi.yaml#/x-common-blocks/server"
       notes:
@@ -2676,7 +3022,7 @@ definitions:
           in your subscription (provided they are the types of item that have statuses).  On
           subsequent GETs it will only contain the items that received status updates since your
           previous call.  Note that an item will be in this array if it received any status update
-          at all, even the status flags did not change.  Prepare to receive updates that do not
+          at all, even if the status flags did not change.  Prepare to receive updates that do not
           contain novel data.
 
           This array is not paginated:  it could contain every one of the items you put in your
@@ -2775,7 +3121,7 @@ definitions:
     }
 
   Item update subscription:
-    type: objecct
+    type: object
     description: |
       Contains a list of item IDs (short alphanums).  Send it in the body of a
       [POST](#operation--api-items-updates-post) to create a subscription to status updates to the
