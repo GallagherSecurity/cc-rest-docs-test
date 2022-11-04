@@ -16,15 +16,18 @@ jobs:
       uses: actions/checkout@v2
     - name: Get build container
       id: adocbuild
-      uses: avattathil/asciidoctor-action@master
+      uses: avattathil/asciidoctor-action@4feb0f72ff1096f854daa6bb0b2456c2ecab27f9
       with:
-          program: "asciidoctor -o training/index.html training/rest_training.adoc"
+          # If gitignore includes HTML files, it won't add our newly-generated HTML
+          # to the gh-pages branch.
+          program: "echo '!index.html' >> training/.gitignore && asciidoctor -o training/index.html training/rest_training.adoc"
     - name: Deploy to github pages.
       uses: peaceiris/actions-gh-pages@v3
       with: 
         github_token: ${{ secrets.GITHUB_TOKEN }}
+
         # Cannot publish to master from master, otherwise generated files would end up alongside
-        # their source files.  The repo's 'pages' is configured to publish from gh-pages branch
+        # their source files.  The repo is configured to publish from gh-pages branch
         # (Settings -> Pages).
         publish_branch: gh-pages
 
@@ -34,8 +37,10 @@ jobs:
         # This is the default.  Flush gh-pages branch before publishing.
         keep_files: false
 
-        # Keep producing an index.html from README.me please.
+        # Keep producing an index.html from README.md please.
         enable_jekyll: true
         
         # There is no point in keeping the history of the gh-pages branch.
+        # If you switch to gh-pages locally, you'll later have a problem merging.
+        # Delete your local branch to unblock.
         force_orphan: true
