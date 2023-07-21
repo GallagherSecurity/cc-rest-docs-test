@@ -350,6 +350,7 @@
                 <h3 id="licensing">Licensing</h3>
                 <p>In versions up to and including 8.50, all of the GET calls described here require the RESTStatus licence. All the POSTs require RESTOverrides. The two licences do not overlap: to watch an item and override it, you will need both.</p>
                 <p>In 8.60 and later the GETs return a limited field set if you have RESTOverrides but not RESTStatus - enough to let you find the item you want to override.</p>
+                <p>The server will return a 403 if you attempt an operation for which the server is not licensed.</p>
                 <h3 id="versions">Versions</h3>
                 <p>The body of this document clearly indicates when recent features arrived in the API so that readers with older versions of Command Centre know not to expect them.</p>
                 <h4 id="api-changes-on-the-roadmap">API changes on the roadmap</h4>
@@ -458,6 +459,9 @@
                   <h5>Schemes:
                     <span>https</span>
                   </h5>
+                  <h5>Version:
+                    <span>1.0.0</span>
+                  </h5>
                 </section>
               </div>
             </div>
@@ -475,13 +479,14 @@
                   <p>Clients authenticate by including a pre-shared API key in the <code>Authorization</code> header of each request. Command Centre generates an API key when you create an endpoint for your clients to connect to. Search the Configuration Client online help for &#39;REST API&#39; for how do do that.</p>
                   <p>The API key will be in the format <code>XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX</code> and should be in the header following an authorisation method of <code>GGL-API-KEY</code> and a space. Both should be in upper case. For example:</p>
                   <p><code>Authorization: GGL-API-KEY C774-B01F-D695-AA4B-215F-A158-AC22-ADEB</code></p>
-                  <p>Early versions of Command Centre allowed you to omit the &#39;GGL-API-KEY&#39;. Later versions will reject you with a 401 if you do that.</p>
+                  <p>Early versions of Command Centre allowed you to omit the &#39;GGL-API-KEY&#39;. Later versions of CC and all versions of the API gateway will reject you with a 401 if you do that.</p>
                   <p>Depending on Command Centre&#39;s site configuration, its REST API may also require a client certificate with each request. In versions up to and including 8.40 this was controlled by a flag labelled &#39;Do not require pinned client certficates&#39; on the &#39;Web Services&#39; tab of the server properties. In 8.50 that flag&#39;s label changed to &#39;Enable REST Clients with no client certificate&#39;, and its behaviour changed slightly when turned on.</p>
                   <p>If off, for all versions of CC, an incoming request&#39;s certificate has to match the thumbprint on its API key&#39;s REST Client item, and REST Client items with a blank thumbprint field do not work at all. This is how it ships, and it is the recommended way of running a production server.</p>
                   <p>If &#39;Do not require pinned client certificates&#39; was turned on in versions up to and including 8.40, the server did not check any client certificates. If that flag is turned on in 8.50, now relabelled &#39;Enable REST Clients with no client certificate&#39;, it still does not check the client certificate if the thumbprint field of the matching REST Client item is blank, but if the Client item has a thumbprint, the server will reject connections with the wrong certificate.</p>
                   <p>See the Configuration Client help for instructions on where to enter REST Client thumbprints.</p>
                   <p>Also note that if IP filtering is enabled on the REST Client item in Command Centre, the API will only accept connections from the IP address ranges configurated into that client item.</p>
                   <p>If a connection attempt fails, the server will return a 401 and raise an event containing its reason for refusing the request. If that happens too often, the server will stop reporting each offence and will instead create a summary alarm at a much lower rate. The details of the alarm tell you how many failed attempts there have been since the start of the flood. The server will stay in this mode of reduced reporting until several minutes pass without a failed connection attempt.</p>
+                  <p>The current failure limit is ten errors inside one minute. After that you will receive one &quot;a large volume of requests has been denied&quot; alarm every minute while the failures continue until five minutes passes without a failure.</p>
                   <p>The most common queries we receive from our integrators relate to their certificate handling. If your client&#39;s HTTP client library complains about certificates the first thing to check is Command Centre&#39;s alarm list. If there are &#39;invalid client certificate&#39; alarms there, your client is not sending the certificate CC is expecting. If there are no alarms then the client is most likely rejecting the server&#39;s certificate.</p>
                 </section>
                 <section class="swagger-security-definition-properties">
@@ -538,7 +543,10 @@
                     <td valign=top>
                       <a href=rest.html>Status and overrides</a>
                     </td>
-                    <td> These functions let you monitor and override several more Command Centre item types. For example you can use them to watch the status of inputs, open doors, run macros, and modify schedules. </td>
+                    <td> These functions let you monitor and override several Command Centre item types, including access zones, alarm zones, doors, fence zones, inputs, outputs, macros, elevator groups, interlock groups, and schedules.
+                      <p> Despite its name this section does not cover
+                        <a href="events.html#status-subscriptions">mass-monitoring item status</a>. </td>
+                    </p>
                   </tr>
                   <tr>
                     <td valign=top>
@@ -990,7 +998,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -1345,7 +1353,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -2846,7 +2854,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -2979,7 +2987,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -4000,7 +4008,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -4461,7 +4469,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -4597,7 +4605,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -4836,7 +4844,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -5308,7 +5316,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -5438,7 +5446,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTCardholders or RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -5722,7 +5730,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -5851,7 +5859,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -6629,7 +6637,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -6916,7 +6924,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -7049,7 +7057,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -7552,7 +7560,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -7614,10 +7622,10 @@
                   <p><code>overridden</code> means the interlock group has received a disable override. Doors will open as normal.</p>
                 </li>
                 <li>
-                  <p><code>forced</code> means that the interlock rules have been breached. This could be because someone forced a door or used an emergency release while another was already open.</p>
+                  <p><code>forced</code> means that the interlock rules have been breached. This could be because someone forced a door, or used an emergency release while another door was already open.</p>
                 </li>
               </ul>
-              <p>To establish if the input is in a completely normal state look for &#39;secure&#39; or &#39;open&#39;.</p>
+              <p>If an interlock is completely normal it will report &#39;secure&#39; or &#39;open&#39;.</p>
               <h3 id="use-cases">Use cases</h3>
               <h4 id="listing-interlock-groups">Listing Interlock Groups</h4>
               <ol>
@@ -7677,7 +7685,7 @@
                   </p>
                   <p>This returns a summary of the interlock groups matching your search criteria.</p>
                   <p>The result will contain no more than 100 or 1000 interlock groups (depending on your version), or as many as you asked for more in your request; you should follow the <code>next</code> link, if it is present, to collect the next batch.</p>
-                  <p>If your result set is empty it means your operator does not have the privilege to view any interlock groups such as &#39;View Site&#39;, &#39;Edit Site&#39;, or &#39;Maintenance Override&#39;. Perhaps there are no interlock groups in the divisions in which your operator has privileges, or your operator has no privileges at all.</p>
+                  <p>If your result set is empty it means your operator does not have a privilege that allows viewing interlock groups, such as &#39;View Site&#39;, &#39;Edit Site&#39;, or &#39;Maintenance Override&#39;. Perhaps there are no interlock groups in the divisions in which your operator has privileges, or your operator has no privileges at all.</p>
                   <p>When you have loaded them all there will be no <code>next</code> link.</p>
                   <p>Take this URL from the &#39;href&#39; field in the <code>features.interlockGroups.interlockGroups</code> section of <code>/api</code>.</p>
                 </section>
@@ -7832,7 +7840,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>The site has neither the RESTStatus nor the RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -7967,7 +7975,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>The site has neither the RESTStatus nor the RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -7991,6 +7999,7 @@
                   <body><pre><code class="hljs language-json">{
   <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/interlock_group/122322&quot;</span>,
   <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;Excercise yard egress&quot;</span>,
+  <span class="hljs-attr">&quot;id&quot;</span>: <span class="hljs-string">&quot;122322&quot;</span>,
   <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Exercise yard egress.&quot;</span>,
   <span class="hljs-attr">&quot;division&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
@@ -8300,7 +8309,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -8539,7 +8548,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -8668,7 +8677,7 @@
                       <!-- <span class="swagger-global"></span> <span class="json-schema-reference"><a href=""></a></span> -->
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -9046,7 +9055,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                 </section>
@@ -9180,7 +9189,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -9781,7 +9790,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -10176,7 +10185,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The operator does not have a privilege that allows creating schedules, or the site does not have any of the RESTCardholders, RESTOverrides, or RESTStatus licences.</p>
+                      <p>The operator does not have a privilege that allows creating schedules, or the site does not have any of the RESTCardholders, RESTOverrides, RESTStatus, or (after 9.00) RESTConfiguration licences.</p>
                     </div>
                   </div>
                 </section>
@@ -10309,7 +10318,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.</p>
+                      <p>A server running 8.50 or earlier is missing the RESTStatus licence. A server running 8.60 or later is missing both the RESTStatus and RESTOverrides licence.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -10524,6 +10533,14 @@
                 <section class="swagger-responses">
                   <div class="prop-row prop-group">
                     <div class="prop-name">
+                      <div class="prop-title">200 OK</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success. The response body will contain feedback from the server about your PATCH.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
                       <div class="prop-title">204 No Content</div>
                     </div>
                     <div class="prop-value">
@@ -10544,7 +10561,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The operator does not have a privilege that allows modifying that schedule, or the site does not have any of the RESTCardholders, RESTOverrides, and RESTStatus licences.</p>
+                      <p>The operator does not have a privilege that allows modifying that schedule, or the site does not have any of the RESTCardholders, RESTOverrides, RESTStatus, or (after 9.00) RESTConfiguration licences.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -10616,7 +10633,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The operator does not have a privilege that allows deleting that schedule (&#39;Edit Schedules&#39;), or the site does not have any of the RESTCardholders, RESTOverrides, or RESTStatus licences.</p>
+                      <p>The operator does not have a privilege that allows deleting that schedule (&#39;Edit Schedules&#39;), or the site does not have any of the RESTCardholders, RESTOverrides, RESTStatus, or (after 9.00) RESTConfiguration licences.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -10906,7 +10923,7 @@
                 <section class="json-schema-description">
                   <p>
                     <a href="#operation--api-access_zones--id--get">/api/access_zones/{id}</a> returns one of these.</p>
-                  <p>As well as the properties below, it contain a block called <code>doors</code>. This is reserved for future development and their behaviour could change in later versions of Command Centre.</p>
+                  <p>As well as the properties below, it contain a block called <code>doors</code>. This is reserved for future development and its behaviour could change in later versions of Command Centre.</p>
                 </section>
                 <section class="json-schema-allOf">
                   <section class="json-schema-allOf-inherited">
@@ -11070,7 +11087,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>
@@ -11666,6 +11684,7 @@
                       <span class="json-property-name">zoneCount:</span>
                       <span class="json-property-type">integer</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Put this in the body of access zone override POSTs to set the count of cardholders in the access zone.</p>
@@ -11964,7 +11983,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>
@@ -12840,7 +12860,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>
@@ -13050,7 +13071,8 @@
                                         </dt>
                                         <dd>
                                           <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                            <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                            <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                            <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                                         </dd>
                                         <dt data-property-name="name">
                                           <span class="json-property-name">name:</span>
@@ -13084,7 +13106,8 @@
                                         </dt>
                                         <dd>
                                           <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                            <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                            <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                            <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                                         </dd>
                                         <dt data-property-name="name">
                                           <span class="json-property-name">name:</span>
@@ -13222,7 +13245,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>
@@ -13564,7 +13588,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>
@@ -14076,7 +14101,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>
@@ -14408,6 +14434,16 @@
                   <section class="json-schema-allOf-additional">
                     <section class="json-schema-properties">
                       <dl>
+                        <dt data-property-name="id" class="has-description">
+                          <span class="json-property-name">id:</span>
+                          <span class="json-property-type">string</span>
+                          <span class="json-property-range" title="Value limits"></span>
+                        </dt>
+                        <dd>
+                          <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
+                            <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                            <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
+                        </dd>
                         <dt data-property-name="description">
                           <span class="json-property-name">description:</span>
                           <span class="json-property-type">string</span>
@@ -14528,7 +14564,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>
@@ -14604,6 +14641,7 @@
                   <body><pre><code class="hljs language-json">{
   <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/interlock_group/122322&quot;</span>,
   <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;Excercise yard egress&quot;</span>,
+  <span class="hljs-attr">&quot;id&quot;</span>: <span class="hljs-string">&quot;122322&quot;</span>,
   <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Exercise yard egress.&quot;</span>,
   <span class="hljs-attr">&quot;division&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
@@ -15183,7 +15221,8 @@
                               </dt>
                               <dd>
                                 <p>An alphanumeric identifier, unique to the server. This is the ID to use in the <code>source</code> parameter of
-                                  <a href="events.html#operation--api-events-get">event filters</a>.</p>
+                                  <a href="events.html#operation--api-events-get">event filters</a> and in the body of
+                                  <a href="events.html#status-subscriptions">status subscriptions</a>.</p>
                               </dd>
                             </dl>
                           </section>

@@ -6,8 +6,10 @@
 ##
 
 swagger: '2.0'
+openapi: '3.0'
 
 info:
+  version: 1.0.0
   title: "Command Centre REST API:  Alarms and Events"
   description: |
     This document describes how you can use the Command Centre REST API to download, monitor, and
@@ -33,6 +35,8 @@ info:
     All of the GETs in this document and the POSTs that manage alarms require the RESTEvents
     licence.  The POST to create a new event requires RESTCreateEvents.
 
+    The server will return a 403 if you attempt an operation for which the server is not licensed.
+
     ### Versions
 
     The body of this document clearly indicates when recent features arrived in the API so that
@@ -40,11 +44,17 @@ info:
 
     #### Alarms, events, and items API changes on the roadmap
 
-    * BREAKING CHANGE:  a future version will require that the operator has the 'Create Events and
-      Alarms' privilege in the division of the source item, if your request specifies a source item.
-      Current versions only require that the operator has that privilege on at least one division.
+    #### Alarms and events API changes in 9.00
+
+    * You can create and delete divisions, and modify some basic fields.
+
+    * A new `location` block on events greatly simplifies the monitoring of cardholder movements.
 
     #### Alarms and events API changes in 8.90
+
+    * BREAKING CHANGE:  the operator must have the 'Create Events and
+      Alarms' privilege in the division of the source item, if your request specifies a source item.
+      Current versions only require that the operator has that privilege on at least one division.
 
     * To improve the symmetry between events and alarms, they now carry a field `eventType`
       containing the ID and name of their type.  The `type` field, which has different
@@ -163,12 +173,12 @@ tags:
   description: |
     These methods provide access to the Command Centre divisions that are available to the REST
     client.  Call `/api` and use the link at `features.{your_feature}.divisions.href` to retrieve
-    the divisions in which the REST operator has privileges for that feature, alarms or events.
-    Pick out the ones of interest and use those IDs in event, alarm, or item searches to make them
-    more efficient.
+    the divisions in which the REST operator has privileges for that feature.  Pick out the ones of
+    interest and use those IDs in event, alarm, or item searches if you don't want the search to
+    scan everything.
 
-    Or, following a division's link from a reception item to retrieve the visitor management
-    configuration for that reception's division.
+    Or, you may end up here by following a division's link from a reception item when you need to
+    retrieve the visitor management configuration for that reception's division.
 
     ### Licensing
 
@@ -363,15 +373,17 @@ tags:
     ### Searching for items
 
     Use the search methods when you are building a filter for an [event
-    search](#operation--api-events-get) and need the ID of an item or an item type, or when you are
-    [creating an event](#operation--api-events-post) and need an href to use as the event source.
+    search](#operation--api-events-get) or a [status
+    subscription](#operation--api-items-updates-post) and need the ID of an item or an item type, or
+    when you are [creating an event](#operation--api-events-post) and need an href to use as the
+    event source.
 
     To find an item, pass a substring of its name to the link at `features.items.items.href` in the
     results of a call to `/api`.  If you are sure of its name, place the name inside `"` quotes, and
-    it will use a full (though case-insensitive) string match.
+    it will use a full string match.  Both types of search are case-insensitive.
 
     To limit the search to items of a particular type, first get the ID of the type you
-    are after using the link at `features.items.itemTypes.href` in the results of `/api`.
+    are after using the link at `features.items.itemTypes.href` in the results of `GET /api`.
     Add that ID as the `type` parameter to the call above.  You can specify multiple item
     types if, for example, you are interested in all the different kinds of doors.
 
@@ -382,9 +394,9 @@ tags:
 
     The [item-specific APIs](rest.html) monitor only one item at a time, and are therefore not
     suitable for watching large collections.  If you have CC version 8.30 or later, you should use
-    the status subscription methods instead.  We have tested subscriptions of 1000 items, and while
-    the calls do not impose an upper bound on that we suggest keeping a watchful eye on the
-    performance of the overall system if you go much higher.
+    the status subscription methods instead.  We have tested subscriptions of 1000 items without
+    noticing undue strain on the server.  While the calls do not impose an upper bound on that we
+    suggest keeping a watchful eye on the performance of the overall system if you go much higher.
 
     The basic operations for monitoring item states is:
 
@@ -417,6 +429,7 @@ securityDefinitions:
     type: apiKey
     name: Authorization
     in: header
+
     description: |
       Clients authenticate by including a pre-shared API key in the `Authorization` header of each
       request.  Command Centre generates an API key when you create an endpoint for your clients to
@@ -428,8 +441,8 @@ securityDefinitions:
 
       `Authorization: GGL-API-KEY C774-B01F-D695-AA4B-215F-A158-AC22-ADEB`
 
-      Early versions of Command Centre allowed you to omit the 'GGL-API-KEY'.  Later versions will
-      reject you with a 401 if you do that.
+      Early versions of Command Centre allowed you to omit the 'GGL-API-KEY'.  Later versions of CC
+      and all versions of the API gateway will reject you with a 401 if you do that.
 
       Depending on Command Centre's site configuration, its REST API may also require a client
       certificate with each request.  In versions up to and including 8.40 this was controlled by a
@@ -460,6 +473,10 @@ securityDefinitions:
       alarm tell you how many failed attempts there have been since the start of the flood.  The
       server will stay in this mode of reduced reporting until several minutes pass without a failed
       connection attempt.
+
+      The current failure limit is ten errors inside one minute.  After that you will receive one "a
+      large volume of requests has been denied" alarm every minute while the failures continue until
+      five minutes passes without a failure.
 
       The most common queries we receive from our integrators relate to their certificate handling.
       If your client's HTTP client library complains about certificates the first thing to check is
@@ -730,9 +747,7 @@ parameters:
     type: string
     required: false
 
-    enum: [ href, id, time, message, source, type, eventType, priority, state, active, division, notePresets,
-    view, comment, acknowledgeWithComment, acknowledge, processWithComment, process, details,
-    history, instruction, cardholder, event ]
+    enum: [ href, id, time, message, source, type, eventType, priority, state, active, division, notePresets, view, comment, acknowledgeWithComment, acknowledge, processWithComment, process, details, history, instruction, cardholder, event ]
 
     description: |
       Sets the fields you want in your results.  Separate fields with commas.
@@ -744,10 +759,7 @@ parameters:
     in: query
     type: string
     required: false
-    enum: [ defaults, details, cardholder.pdf_*, href, id, serverDisplayName, time, message,
-    occurrences, priority, alarm, operator, source, group, type, eventType, division, cardholder,
-    entryAccessZone, exitAccessZone, door, accessGroup, card, modifiedItem, lastOccurrenceTime,
-    previous, next, updates]
+    enum: [ defaults, details, cardholder.pdf_*, href, id, serverDisplayName, time, message, occurrences, priority, alarm, operator, source, group, type, eventType, division, cardholder, entryAccessZone, exitAccessZone, door, accessGroup, card, modifiedItem, lastOccurrenceTime, previous, next, updates]
 
     description: |
       Sets the fields you want in your results.
@@ -800,10 +812,10 @@ paths:
         - Alarms
       summary: Get changes to alarms (or wait)
       description: |
-        Long poll this link for live updates to alarms.  It will return the alarms that occurred or
-        changed since the previous call, no matter how long ago that was.  If there are no changes
-        to alarms before a timeout passes (about 30 seconds) the server will return a normal
-        response, except that the `updates` array will be empty.
+        Long poll this link for live updates to alarms.  If alarms occurred or changed since the
+        previous call, no matter how long ago that was, it will return them immediately.  If there
+        are no updates pending, it will wait until one arrives.  If none arrive before a timeout
+        passes (about 30 seconds) the `updates` array in its response will be empty.
 
         Whether or not the response contained updates the client should follow the `next` link to
         wait for the next updates.  If your server receives a lot of alarm updates, wait some time
@@ -904,7 +916,8 @@ paths:
   /api/alarms/{id}/process:
     post:
       summary: Mark an alarm as processed
-      description: Follow the `processWithComment` or the `process` link in the alarm summary to get here.
+      description: |
+        Follow the `processWithComment`, `forceProcess`, or `process` link in the alarm to get here.
       tags:
         - Alarms
       parameters:
@@ -961,14 +974,23 @@ paths:
         Response' tab in its Configuration Client window (which is most of them).  Our existing
         integrations use items like doors, external system items, and cameras.
 
-        Cardholders do not have an 'Event Response' tab so cannot be event sources, but...
+        If you allow the server to default to your REST client item as the source, or if specify it
+        yourself, your operator must have 'Create events and alarms' in at least one division for
+        the call to succeed.  Any division will do.  Otherwise you'll receive a 403.
+
+        If you specify a source item to a server running 8.90 or later and that item is not your
+        REST Client item, your operator must have the 'Create events and alarms' privilege in that
+        item's division.  In older versions it was enough for your operator to have that privilege
+        in any division.
+
+        Cardholders cannot be event sources because they do not have an 'Event Response' tab, but...
 
         #### Related items
 
         Along with a source, you can link other items to the events you create.  If you link a
         cardholder, for example, your events will show on an activity report generated for that
         cardholder.  To link an item your operator must have a privilege that allows viewing it
-        (such as 'View cardholders' or 'View site').
+        ('View cardholders' for cardholders or 'View site' for most other item types).
 
         #### Action plans
 
@@ -1048,15 +1070,16 @@ paths:
         400:
           description: |
             The parameters are invalid.  Check the body of the response for an error message.
+
+            8.90 and later will reject the POST with a 400 if your event specifies a source item
+            that is not your REST Client item and your operator does not have 'Create Events and
+            Alarms' on its division.
+
         403:
           description: |
             The site does not have the RESTCreateEvents licence (in which case the body of the
             response will say so) or operator does not have the 'Create Events and Alarms'
             privilege.
-
-            A future version of Command Centre will reject the POST with a 403 if your event
-            specifies a source item and the operator does not have 'Create Events and Alarms' on
-            that item's division.
 
     get:
       tags:
@@ -1098,19 +1121,29 @@ paths:
         type: string
         format: date-time
         description: |
-          Restricts events to those that occurred at or after this time.  It must an ISO-8601
-          date or date-time with a timezone specifier.
+          Restricts events to those that occurred at or after this time.
+
+          The server accepts extended ISO-8601 time stamp formats.  There must be hyphen separators
+          in the date and colons in the time, and a `T` separating the two.
+
+          For predictable results you should also add a timezone specifier.  A `Z` means UTC and is
+          recommended, but `+hh`, `+hhmm`, and `+hh:mm` also work.  Note that you need to encode
+          plus-signs as `%2b` in a URL.
+
+          If you omit the time, the server will assume midnight.  If you omit just the seconds, the
+          server will take it to the top of the minute, `:00`.
       - name: "before"
         in: query
         required: false
         type: string
         format: date-time
         description: |
-          Restricts events to those that occurred before this time.  It must be an ISO-8601 date or
-          date-time with a timezone specifier.  Events that occurred at this exact time (to the
-          second) will not appear in the results.  For example, to collect all events that occurred
-          on 1 January 2017, use `after=2017-01-01Z,before=2017-01-02Z`.  You will not receive any
-          events from 2 January.
+          Restricts events to those that occurred before this time.  Events that occurred at this
+          exact time (to the second) will not appear in the results.  For example, to collect all
+          events that occurred on 1 January 2017, use `after=2017-01-01Z,before=2017-01-02Z`.  You
+          will not receive any events from 2 January.
+
+          The `after` parameter (above) describes the time stamp formats that the server accepts.
       - name: "source"
         in: query
         required: false
@@ -1375,8 +1408,18 @@ paths:
       summary: List event types
       description: |
         Retrieves the list of event type groups and the event types within those groups. Useful for
-        obtaining IDs to use in event filters.  There are about 1000 event types, divided into
+        obtaining IDs to use in event filters.  Command Centre ships with about 1000 event types
+        divided into
         about 150 groups.  Each event type is in one group.
+
+        A site may rename the 30 groups dedicated to external event types—that is, event types for
+        the site's own use—and may create another 970 event types for them.
+
+        The results of this query vary with:
+
+          - the server version,
+          - extra Gallagher software installed on the site, and
+          - changes to external event groups and types made by the customer.
 
         Event type identifiers do not often change between Command Centre versions, but the types in
         each group do.  Therefore if you choose to use groups in filters rather than types you may
@@ -1396,6 +1439,63 @@ paths:
         403: { description: The site does not have the RESTEvents or RESTCreateEvents licence. }
 
 ######################################################################
+
+  /api/divisions:
+    post:
+      tags:
+      - Divisions
+      summary: Create a division
+      description: |
+        Creates a new division.
+
+        The POST expects a document in the same format as the [the division
+        detail](#definition-Division) but with far fewer fields.  An example is [this POST
+        example](#definition-Division-PATCH-and-POST-example).  The only mandatory field is `parent`.
+
+        When successful it returns a `location` header containing the address of the new division.
+
+        Note that you can only create one division per POST.
+
+        Do not code this URL into your application.  Take it from the results of `GET /api`.
+
+        `/api` only shows API features for which you have the necessary licence.
+
+        Creating a division requires the RESTCardholders licence.
+
+        Creating divisions is new to 9.00.
+
+      parameters:
+        - name: "this name not rendered"
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/Division PATCH and POST example'}
+          description: |
+            The only required field here is the new division's parent.  All divisions (except the
+            root) must have a parent.
+
+      responses:
+        201: 
+          description: |
+            Success.  Check the response body for feedback about your request.
+          headers:
+            location:
+              type: string
+              format: url
+              description: The href of the new division.
+        400:
+          description: |
+            The body of the POST did not describe a valid division.  This includes not specifying a
+            parent division.  Or it may be that you tried to give the new division the same name as
+            an existing one.  Or you may have tried to set the new division's parent to a division
+            that is not visible to you.
+
+            See the body of the response for help.
+
+        403:
+          description: |
+            The operator does not have a privilege on the parent division that allows creating
+            divisions inside it ('Configure Site' or 'Edit Divisions'), or the server has reached
+            its licensed limit of divisions.
 
   /api/divisions/{operation}:
     get:
@@ -1424,8 +1524,7 @@ paths:
         minimum: 1
       - $ref: "cardholdersApi.yaml#/parameters/sort"
       - name: "fields"
-        <<: *DIVFIELDSDESC
-        <<: *DIVFIELDS
+        <<: [*DIVFIELDSDESC, *DIVFIELDS]
       responses:
         200:
           description: Success
@@ -1446,14 +1545,87 @@ paths:
         type: string
         description: The ID of the division.
       - name: "fields"
-        <<: *DIVFIELDSDESC
-        <<: *DIVFIELDS
+        <<: [*DIVFIELDSDESC, *DIVFIELDS]
       responses: 
         200: 
           description: "Success"
           schema: { $ref: '#/definitions/Division' }
         403: { description: The site does not have a REST licence. }
-        404: { description: "That is not the href of a division or you do not have privileges to read divisions (View Site, Configure Site, or Advanced User)." }
+        404: { description: "That is not the href of a division or you do not have privileges to read divisions (View Site, Configure Site, Edit Divisions, or Advanced User)." }
+
+    patch:
+      tags:
+      - Divisions
+      summary: Update a division
+      description: |
+        This is the call you use to update a division's name, description, notes, or parent.
+
+        The PATCH expects a document in the same format as the [the division
+        detail](#definition-Division) but with fewer valid fields.  An example is [this PATCH
+        example](#definition-Division-PATCH-and-POST-example).
+
+        Patching divisions is new to 9.00.
+
+      parameters:
+        - name: "this name not rendered"
+          in: body
+          required: true
+          schema: {$ref: '#/definitions/Division PATCH and POST example'}
+          description: |
+            There are no mandatory fields.
+
+      responses:
+        200:
+          description: |
+            Success.  The response body will contain feedback from the server about your PATCH.
+        204:
+          description: "Success."
+        400:
+          description: |
+            The body of the PATCH did not describe a valid division.  See the body of the response
+            for help on what went wrong.  It may be that you tried to use the name of another
+            division:  no two items of the same type can have the same name.  Or you may have tried
+            to set the division's parent to a division that is not visible to you.
+        403:
+          description: |
+            The operator has a privilege that allows viewing the division but not modifying it, or
+            you tried to set a parent on the root division, or you tried to set the parent to a
+            division you cannot configure, or the server is missing the necessary licence.
+
+            You need either the 'Configure Site' or 'Edit Divisions' privilege on the division you
+            are changing.  You also need it on the new parent, if you are changing that.
+
+        404:
+          description: |
+            That is not the URL of a division or the operator does not have the privilege to view
+            that division.  This probably means you have built the URL yourself instead of taking it
+            from the results of a [GET](#operation--api-divisions--operation--get).
+
+        409:
+          description: |
+            The item is locked for editing by another operator.  The body of the response will
+            tell you which operator is holding the lock.
+
+    delete:
+      tags: [ Divisions ]
+      summary: Remove a division
+      description: |
+        This call removes a division from Command Centre.
+
+        Deleting divisions is new to 9.00.
+      responses: 
+        204: { description: "Success." }
+        400:
+          description: |
+            Deleting the division failed.  This happens when the division is not empty or is still
+            being used by another item (such as an operator group).
+        403:
+          description: |
+            The operator has the permission to view the division but not delete it, or the server is
+            not licensed for the operation.
+        404:
+          description: |
+            That is not the URL of a division, or the operator is not privileged to view it.
 
 ######################################################################
 
@@ -1504,8 +1676,7 @@ paths:
         default: 100
       - $ref: "cardholdersApi.yaml#/parameters/sort"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *ITEMFIELDS
+        <<: [*FIELDSDESC_SUM, *ITEMFIELDS]
 
       responses:
         200:
@@ -1531,8 +1702,7 @@ paths:
         type: string
         description: The ID of the item.
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *ITEMFIELDS
+        <<: [*FIELDSDESC_SUM, *ITEMFIELDS]
 
       responses:
         200:
@@ -1852,16 +2022,6 @@ definitions:
             type: string
             format: url
             example: "https://localhost:8904/api/alarms/92210/comment"
-      acknowledgeWithComment:
-        type: object
-        description: |
-          POST an alarm update request JSON object to the href to acknowledge an alarm and place an
-          alarm note against it.  Missing if the alarm is already acknowledged.
-        properties:
-          href:
-            type: string
-            format: url
-            example: "https://localhost:8904/api/alarms/92210/acknowledge"
       acknowledge:
         type: object
         description: |
@@ -1873,6 +2033,24 @@ definitions:
             type: string
             format: url
             example: "https://localhost:8904/api/alarms/92210/acknowledge"
+      acknowledgeWithComment:
+        type: object
+        description: |
+          POST an alarm update request JSON object to the href to acknowledge an alarm and place an
+          alarm note against it.  Missing if the alarm is already acknowledged.
+        properties:
+          href:
+            type: string
+            format: url
+            example: "https://localhost:8904/api/alarms/92210/acknowledge"
+      process:
+        type: object
+        description: POST an alarm update request JSON object to the href to process an alarm. Missing if the system has mandatory alarm notes on for this alarm.  Missing if the alarm cannot be processed (if it is active, for example).
+        properties:
+          href:
+            type: string
+            format: url
+            example: "https://localhost:8904/api/alarms/92210/process"
       processWithComment:
         type: object
         description: POST an alarm update request JSON object to the href to process an alarm and place an alarm note against it.  Missing if the alarm cannot be processed (if it is active, for example).
@@ -1881,9 +2059,12 @@ definitions:
             type: string
             format: url
             example: "https://localhost:8904/api/alarms/92210/process"
-      process:
+      forceProcess:
         type: object
-        description: POST an alarm update request JSON object to the href to process an alarm. Missing if the system has mandatory alarm notes on for this alarm.  Missing if the alarm cannot be processed (if it is active, for example).
+        description: |
+          POST an alarm update request JSON object to this href to process an active alarm.  Missing
+          if the alarm is not active (in which case you will have `process` and `processWithComment`
+          links instead).
         properties:
           href:
             type: string
@@ -2004,8 +2185,8 @@ definitions:
           This is a link to an [updates](#operation--api-events-updates-get) call.  Follow it to
           make a blocking call to collect more events.  If there are none, the call will block until
           one arrives or the call times out.  This link will contain your column select, pagination,
-          and filtering parameters (fields, top, after, before, source, type, etc.) but it drops
-          'deadline'.  You need to add that to each call.
+          and filtering parameters (`fields`, `top`, `after`, `before`, `source`, `type`, etc.) but it drops
+          `deadline`.  You need to add that to each call.
         properties:
           href:
             type: string
@@ -2057,7 +2238,8 @@ definitions:
         type: integer
         description: |
           If an event arrives with the same essential properties as a previous event, the server
-          will start counting them.  Each is still individually addressable, but the first in the
+          will start counting them.  Each event is still individually addressable and will appear in
+          the API as normal, but the first in the
           group will also have this property.  It only appears on the first, and it does not appear
           if the event is a singleton.
 
@@ -2248,6 +2430,7 @@ definitions:
             description: |
               The current name of the access zone.  Expect a future version of Command Centre to
               change this to change to the name of the access zone at the time of the event.
+
             example:  "Brookwood showroom"
           id:
             deprecated: true
@@ -2478,6 +2661,7 @@ definitions:
       - $ref: "#/definitions/Event summary"
 
   Event POST body:
+    required: [type, eventType]
     properties:
       type:
         description: |
@@ -2486,7 +2670,7 @@ definitions:
           It is mandatory because the server cannot assume a reasonable default.  It can for the
           others.
 
-          If your server is running 8.90 `eventType` is a synonym.  If you send both a `type` block
+          If your server is running 8.90 or later, `eventType` is a synonym.  If you send both a `type` block
           and an `eventType` block it will use `eventType`.
 
         type: object
@@ -2521,7 +2705,7 @@ definitions:
           `cardholder` block.
 
           Make sure that your operator has the 'Create Events and Alarms' privilege on this item's
-          division.  Future versions of Command Centre will require it.
+          division.  8.90 and later insist on it.
 
           The API will use the source's division as the event's division.
         type: object
@@ -2902,6 +3086,46 @@ definitions:
                     }
                   ]
 
+  Division PATCH and POST example:
+    type: object
+    description: |
+      This is an example of a PATCH you could use to update a division, and a POST you could use to create one.
+
+      When POSTing, `parent` is mandatory.
+
+    properties:
+      name:
+        type: string
+        description: |
+          The division's name.  If you supply a name and another division already exists with that
+          name, the call will fail.  If you leave it blank in a POST, Command Centre will pick value
+          for you.
+
+        example: "Long division"
+      description:
+        type: string
+        description:  The division's description.
+        example: "Quatermasters"
+      notes:
+        type: string
+        description: |
+          A string, able to me much longer than `description`, suitable for holding notes about the
+          division.
+        example: "A very long string."
+      parent:
+        description: |
+          An object containing an href to the division entity representing the current division's parent.
+
+          Required when creating a new division, because only root divisions can be unparented and
+          you cannot create a new one of those.
+
+        type: object
+        properties:
+          href:
+            type: string
+            format: url
+            example: "https://localhost:8904/api/divisions/2"
+
   Item search:
     type: object
     description:  Calls to `/api/items` return this object.
@@ -3126,6 +3350,7 @@ definitions:
       Contains a list of item IDs (short alphanums).  Send it in the body of a
       [POST](#operation--api-items-updates-post) to create a subscription to status updates to the
       items with these IDs.
+    required: [itemIds]
     properties:
       itemIds:
         type: array

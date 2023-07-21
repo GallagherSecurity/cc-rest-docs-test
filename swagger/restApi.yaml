@@ -1,17 +1,18 @@
 ##
 ##         Copyright Gallagher Group Ltd 2020 All Rights Reserved
 ##            THIS IS PROPRIETARY DOCUMENTATION SOURCE CODE OF
-##                Gallagher Group Research and Development
-##                          Hamilton, New Zealand
+##                Gallagher Group, Hamilton, New Zealand
 ##
 
 swagger: '2.0'
+openapi: '3.0'
 
 schemes: [https]
 produces: [application/json]
 consumes: [application/json]
 
 info:
+  version: 1.0.0
   title: "Command Centre REST API:  Non-cardholder items"
 
   description: |
@@ -44,6 +45,8 @@ info:
 
     In 8.60 and later the GETs return a limited field set if you have RESTOverrides but not
     RESTStatus - enough to let you find the item you want to override.
+
+    The server will return a 403 if you attempt an operation for which the server is not licensed.
 
     ### Versions
 
@@ -323,7 +326,8 @@ x-common-blocks-this-is-made-up:
     type: string
     description: |
       An alphanumeric identifier, unique to the server. This is the ID to use in the `source`
-      parameter of [event filters](events.html#operation--api-events-get).
+      parameter of [event filters](events.html#operation--api-events-get) and in the body of [status
+      subscriptions](events.html#status-subscriptions).
 
   updates_ignored: &UPDATES
     type: object
@@ -620,7 +624,7 @@ definitions:
       [/api/access_zones/{id}](#operation--api-access_zones--id--get) returns one of these.
 
       As well as the properties below, it contain a block called `doors`.  This is reserved for
-      future development and their behaviour could change in later versions of Command Centre.
+      future development and its behaviour could change in later versions of Command Centre.
 
     allOf:
       - type: object
@@ -908,6 +912,7 @@ definitions:
 
   Access Zone count:
     type: object
+    required: [ zoneCount ]
     properties:
       zoneCount:
         type: integer
@@ -1827,6 +1832,9 @@ definitions:
     allOf:
       - type: object
         properties:
+          id:
+            <<: *ID
+            example: "122322"
           description:
             type: string
             example: "Exercise yard egress."
@@ -2159,8 +2167,7 @@ definitions:
             properties:
               type:
                 type: string
-                enum: [ accessZoneSchedule, accessSchedule, alarmZoneSchedule,
-                outputSchedule, notificationSchedule, hVLFSchedule, elevatorKioskControlSchedule ]
+                enum: [ accessZoneSchedule, accessSchedule, alarmZoneSchedule, outputSchedule, notificationSchedule, hVLFSchedule, elevatorKioskControlSchedule ]
                 example: "accessZoneSchedule"
           dayCategories:
             type: array
@@ -2295,8 +2302,7 @@ definitions:
         properties:
           type:
             type: string
-            enum: [ accessZoneSchedule, accessSchedule, alarmZoneSchedule,
-            outputSchedule, notificationSchedule, hVLFSchedule, elevatorKioskControlSchedule ]
+            enum: [ accessZoneSchedule, accessSchedule, alarmZoneSchedule, outputSchedule, notificationSchedule, hVLFSchedule, elevatorKioskControlSchedule ]
             example: "accessZoneSchedule"
       dayCategories:
         type: array
@@ -2429,21 +2435,21 @@ tags:
     ### Use cases
 
     #### Searching for access zones by name
-    1. `GET /api`.
-    2. Follow the link at `features.accessZones.accessZones.href`
-       [↪](#operation--api-access_zones-get), appending a search term such as `name=substring` to
-       filter the access zones, and `fields` to tell the server what to return about each.  The next
-       section covers those query parameters.
-    3. Process the results, following the `next` link until there isn't one.
+     1. `GET /api`.
+     2. Follow the link at `features.accessZones.accessZones.href`
+        [↪](#operation--api-access_zones-get), appending a search term such as `name=substring` to
+        filter the access zones, and `fields` to tell the server what to return about each.  The
+        next section covers those query parameters.
+     3. Process the results, following the `next` link until there isn't one.
 
     #### Changing an access zone's access mode
-    1. Find the href for the access zone using the process above.
-    2. GET it.
-    3. Find the API URL you require in the `commands` structure of the results, such as
-    `free` or `securePin`, from [the detail](#definition-Access-Zone-detail).  Use the
-    `until` variants if you are specifying an end time.
-    4. POST to that URL.  Some require a JSON object (resetting the zone count, and all
-    those with `until` in their command block keys).  The others expect an empty body.
+     1. Find the href for the access zone using the process above.
+     2. GET it.
+     3. Find the API URL you require in the `commands` structure of the results, such as `free` or
+        `securePin`, from [the detail](#definition-Access-Zone-detail).  Use the `until` variants if
+        you are specifying an end time.
+     4. POST to that URL.  Some require a JSON object (resetting the zone count, and all
+         those with `until` in their command block keys).  The others expect an empty body.
 
     #### Finding an access zone's status
     1. Find the href for the access zone using the process above, and GET it.
@@ -2840,9 +2846,9 @@ tags:
       normal.
 
     - `forced` means that the interlock rules have been breached.  This could be because someone
-      forced a door or used an emergency release while another was already open.
+      forced a door, or used an emergency release while another door was already open.
 
-    To establish if the input is in a completely normal state look for 'secure' or 'open'.
+    If an interlock is completely normal it will report 'secure' or 'open'.
 
     ### Use cases
 
@@ -3029,8 +3035,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *ACZFIELDS
+        <<: [*FIELDSDESC_SUM, *ACZFIELDS]
 
       responses:
         200:
@@ -3039,7 +3044,8 @@ paths:
           schema: {$ref: '#/definitions/Access Zone search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/access_zones/update_cardholder_location:
     get:
@@ -3073,8 +3079,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *ACZFIELDS
+        <<: [*FIELDSDESC_SUM, *ACZFIELDS]
 
       responses:
         200:
@@ -3101,8 +3106,7 @@ paths:
         required: true
         type: string
       - name: "fields"
-        <<: *FIELDSDESC_DET
-        <<: *ACZFIELDS
+        <<: [*FIELDSDESC_DET, *ACZFIELDS]
 
       responses:
         200:
@@ -3110,7 +3114,8 @@ paths:
           schema: {$ref: '#/definitions/Access Zone detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404accesszone"}
 
   /api/access_zones/{id}/free:
@@ -3381,8 +3386,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *ALZFIELDS
+        <<: [*FIELDSDESC_SUM, *ALZFIELDS]
 
       responses:
         200:
@@ -3391,7 +3395,8 @@ paths:
           schema: {$ref: '#/definitions/Alarm Zone search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/alarm_zones/{id}:
     get:
@@ -3410,8 +3415,7 @@ paths:
         type: string
         description: The ID of the alarm zone.
       - name: "fields"
-        <<: *FIELDSDESC_DET
-        <<: *ALZFIELDS
+        <<: [*FIELDSDESC_DET, *ALZFIELDS]
 
       responses:
         200:
@@ -3419,7 +3423,8 @@ paths:
           schema: {$ref: '#/definitions/Alarm Zone detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404alarmzone"}
 
   /api/alarm_zones/{id}/arm:
@@ -3608,8 +3613,7 @@ paths:
         type: string
         description: The ID of the alarm zone.
       - name: "fields"
-        <<: *UPDFIELDS
-        <<: *UPDFIELDSENUM
+        <<: [*UPDFIELDS, *UPDFIELDSENUM]
 
       responses:
         200:
@@ -3626,7 +3630,8 @@ paths:
             }
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404alarmzone"}
 
 ######################################################################
@@ -3707,8 +3712,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *DOORFIELDS
+        <<: [*FIELDSDESC_SUM, *DOORFIELDS]
 
       responses:
         200:
@@ -3717,7 +3721,8 @@ paths:
           schema: {$ref: '#/definitions/Door search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/doors/{id}:
     get:
@@ -3736,8 +3741,7 @@ paths:
         type: string
         description: The ID of the door.
       - name: "fields"
-        <<: *FIELDSDESC_DET
-        <<: *DOORFIELDS
+        <<: [*FIELDSDESC_DET, *DOORFIELDS]
 
       responses:
         200:
@@ -3745,7 +3749,8 @@ paths:
           schema: {$ref: '#/definitions/Door detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404door"}
 
   /api/doors/{id}/open:
@@ -3783,8 +3788,7 @@ paths:
         type: string
         description: The ID of the door.
       - name: "fields"
-        <<: *UPDFIELDS
-        <<: *UPDFIELDSENUM
+        <<: [*UPDFIELDS, *UPDFIELDSENUM]
 
       responses:
         200:
@@ -3802,7 +3806,8 @@ paths:
             }
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404door"}
 
 ######################################################################
@@ -3838,8 +3843,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *ELEVATORGROUPCARDHOLDERFIELDS
+        <<: [*FIELDSDESC_SUM, *ELEVATORGROUPCARDHOLDERFIELDS]
 
       responses:
         200:
@@ -3895,8 +3899,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *ELEVATORGROUPALLFIELDS
+        <<: [*FIELDSDESC_SUM, *ELEVATORGROUPALLFIELDS]
 
       responses:
         200:
@@ -3917,7 +3920,8 @@ paths:
                     example: "https://localhost:8904/api/elevator_groups?skip=1000"
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/elevator groups/{id}:
     get:
@@ -3937,8 +3941,7 @@ paths:
         type: string
         description: The ID of the elevator group.
       - name: "fields"
-        <<: *FIELDSDESC_DET
-        <<: *ELEVATORGROUPALLFIELDS
+        <<: [*FIELDSDESC_DET, *ELEVATORGROUPALLFIELDS]
 
       responses:
         200:
@@ -3946,8 +3949,8 @@ paths:
           schema: {$ref: '#/definitions/Elevator Group detail'}
         403:
           description: |
-            The site does not have the RESTCardholders or RESTStatus or (in 8.60 or later) the
-            RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404:
           description: |
             The request's URL does not represent an elevator group, or the operator does not have a
@@ -3984,8 +3987,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *FZFIELDS
+        <<: [*FIELDSDESC_SUM, *FZFIELDS]
 
       responses:
         200:
@@ -3994,7 +3996,8 @@ paths:
           schema: {$ref: '#/definitions/Fence Zone search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/fence_zones/{id}:
     get:
@@ -4013,8 +4016,7 @@ paths:
         type: string
         description: The ID of the fence zone.
       - name: "fields"
-        <<: *FIELDSDESC_DET
-        <<: *MACROFIELDS
+        <<: [*FIELDSDESC_DET, *MACROFIELDS]
 
       responses:
         200:
@@ -4022,7 +4024,8 @@ paths:
           description: Success.
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404fencezone"}
 
   /api/fence_zones/{id}/on:
@@ -4163,7 +4166,8 @@ paths:
             }
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404fencezone"}
 
 ######################################################################
@@ -4196,8 +4200,8 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM_810
-        <<: *OUTPUTFIELDS      
+        <<: [*FIELDSDESC_SUM_810,
+             *OUTPUTFIELDS]      
 
       responses:
         200:
@@ -4206,7 +4210,8 @@ paths:
           schema: {$ref: '#/definitions/Input search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/inputs/{id}:
     get:
@@ -4225,8 +4230,8 @@ paths:
         type: string
         description: The ID of the input.
       - name: "fields"
-        <<: *FIELDSDESC_DET_810
-        <<: *OUTPUTFIELDS      
+        <<: [*FIELDSDESC_DET_810,
+             *OUTPUTFIELDS]      
 
       responses:
         200:
@@ -4234,7 +4239,8 @@ paths:
           schema: {$ref: '#/definitions/Input detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404input"}
 
   /api/inputs/{id}/shunt:
@@ -4315,8 +4321,7 @@ paths:
         type: string
         description: The ID of the input.
       - name: "fields"
-        <<: *UPDFIELDS
-        <<: *UPDFIELDSENUM
+        <<: [*UPDFIELDS, *UPDFIELDSENUM]
 
       responses:
         200:
@@ -4334,7 +4339,8 @@ paths:
             }
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404input"}
 
 ######################################################################
@@ -4354,8 +4360,8 @@ paths:
         version), or as many as you asked for more in your request; you should follow the `next`
         link, if it is present, to collect the next batch.
 
-        If your result set is empty it means your operator does not have the privilege to view any
-        interlock groups such as 'View Site', 'Edit Site', or 'Maintenance Override'.  Perhaps there
+        If your result set is empty it means your operator does not have a privilege that allows viewing
+        interlock groups, such as 'View Site', 'Edit Site', or 'Maintenance Override'.  Perhaps there
         are no interlock groups in the divisions in which your operator has privileges, or your
         operator has no privileges at all.
 
@@ -4371,8 +4377,8 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM_810
-        <<: *INTERLOCKFIELDS
+        <<: [*FIELDSDESC_SUM_810,
+             *INTERLOCKFIELDS ]
 
       responses:
         200:
@@ -4381,7 +4387,7 @@ paths:
           schema: {$ref: '#/definitions/Interlock Group search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            The site has neither the RESTStatus nor the RESTOverrides licence.
 
   /api/interlock_groups/{id}:
     get:
@@ -4404,8 +4410,8 @@ paths:
         type: string
         description: The ID of the interlock group.
       - name: "fields"
-        <<: *FIELDSDESC_DET_810
-        <<: *INTERLOCKFIELDS
+        <<: [*FIELDSDESC_DET_810,
+             *INTERLOCKFIELDS]
 
       responses:
         200:
@@ -4413,7 +4419,7 @@ paths:
           schema: {$ref: '#/definitions/Interlock Group detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            The site has neither the RESTStatus nor the RESTOverrides licence.
         404: {$ref: "#responses/404interlock"}
 
   /api/interlock_groups/{id}/disable:
@@ -4477,8 +4483,7 @@ paths:
         type: string
         description: The ID of the interlock group.
       - name: "fields"
-        <<: *UPDFIELDS
-        <<: *UPDFIELDSENUM
+        <<: [*UPDFIELDS, *UPDFIELDSENUM]
 
       responses:
         200:
@@ -4494,7 +4499,8 @@ paths:
             }
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404interlock"}
 
 ######################################################################
@@ -4526,8 +4532,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *MACROFIELDS
+        <<: [*FIELDSDESC_SUM, *MACROFIELDS]
 
       responses:
         200:
@@ -4536,7 +4541,8 @@ paths:
           schema: {$ref: '#/definitions/Macro search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/macros/{id}:
     get:
@@ -4555,15 +4561,15 @@ paths:
         type: string
         description: The ID of the macro.
       - name: "fields"
-        <<: *FIELDSDESC_DET
-        <<: *MACROFIELDS
+        <<: [*FIELDSDESC_DET, *MACROFIELDS]
 
       responses:
         200:
           description: Success.
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
           schema: {$ref: '#/definitions/Macro detail'}
         404: {$ref: "#responses/404macro"}
 
@@ -4610,8 +4616,7 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM
-        <<: *OUTPUTFIELDS
+        <<: [*FIELDSDESC_SUM, *OUTPUTFIELDS]
 
       responses:
         200:
@@ -4620,7 +4625,8 @@ paths:
           schema: {$ref: '#/definitions/Output search'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
 
   /api/outputs/{id}:
     get:
@@ -4639,8 +4645,7 @@ paths:
         type: string
         description: The ID of the output.
       - name: "fields"
-        <<: *FIELDSDESC_DET
-        <<: *OUTPUTFIELDS
+        <<: [*FIELDSDESC_DET, *OUTPUTFIELDS]
 
       responses:
         200:
@@ -4648,7 +4653,8 @@ paths:
           schema: {$ref: '#/definitions/Output detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404output"}
 
   /api/outputs/{id}/on:
@@ -4755,8 +4761,7 @@ paths:
         type: string
         description: The ID of the output.
       - name: "fields"
-        <<: *UPDFIELDS
-        <<: *UPDFIELDSENUM
+        <<: [*UPDFIELDS, *UPDFIELDSENUM]
 
       responses:
         200:
@@ -4774,7 +4779,8 @@ paths:
             }
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404output"}
 
 ######################################################################
@@ -4812,8 +4818,8 @@ paths:
       - $ref: "cardholdersApi.yaml#/parameters/division"
       - $ref: "cardholdersApi.yaml#/parameters/description"
       - name: "fields"
-        <<: *FIELDSDESC_SUM_810
-        <<: *SCHEDULEFIELDS
+        <<: [*FIELDSDESC_SUM_810,
+             *SCHEDULEFIELDS]
 
       responses:
         200:
@@ -4862,7 +4868,8 @@ paths:
         403:
           description: |
             The operator does not have a privilege that allows creating schedules, or the site does
-            not have any of the RESTCardholders, RESTOverrides, or RESTStatus licences.
+            not have any of the RESTCardholders, RESTOverrides, RESTStatus, or (after 9.00)
+            RESTConfiguration licences.
 
   /api/schedules/{id}:
     get:
@@ -4881,8 +4888,7 @@ paths:
         type: string
         description: The ID of the schedule.
       - name: "fields"
-        <<: *FIELDSDESC_DET_810
-        <<: *SCHEDULEFIELDS
+        <<: [*FIELDSDESC_DET_810, *SCHEDULEFIELDS]
 
       responses:
         200:
@@ -4890,7 +4896,8 @@ paths:
           schema: {$ref: '#/definitions/Schedule detail'}
         403:
           description: |
-            The site does not have the RESTStatus or (in 8.60 or later) the RESTOverrides licence.
+            A server running 8.50 or earlier is missing the RESTStatus licence.  A server running
+            8.60 or later is missing both the RESTStatus and RESTOverrides licence.
         404: {$ref: "#responses/404schedule"}
 
     patch:
@@ -4910,6 +4917,9 @@ paths:
             You do not need to supply any fields in the body of this PATCH, but if you want it to
             achieve something you should add at least one.  Probably `dayCategories`.
       responses: 
+        200:
+          description: |
+            Success.  The response body will contain feedback from the server about your PATCH.
         204: 
           description: "Success."
         400:
@@ -4922,7 +4932,8 @@ paths:
         403:
           description: |
             The operator does not have a privilege that allows modifying that schedule, or the site
-            does not have any of the RESTCardholders, RESTOverrides, and RESTStatus licences.
+            does not have any of the RESTCardholders, RESTOverrides, RESTStatus, or (after 9.00)
+            RESTConfiguration licences.
         404: {$ref: "#responses/404schedule"}
 
     delete:
@@ -4944,8 +4955,8 @@ paths:
         403:
           description: |
             The operator does not have a privilege that allows deleting that schedule ('Edit
-            Schedules'), or the site does not have any of the RESTCardholders, RESTOverrides, or
-            RESTStatus licences.
+            Schedules'), or the site does not have any of the RESTCardholders, RESTOverrides,
+            RESTStatus, or (after 9.00) RESTConfiguration licences.
         404: {$ref: "#responses/404schedule"}
 
 ######################################################################

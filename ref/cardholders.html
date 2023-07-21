@@ -101,10 +101,19 @@
             <a href="#tag-Competencies">Competencies</a>
             <ul>
               <li>
+                <a href="#operation--api-competencies-post"> Create a competency [coming soon] </a>
+              </li>
+              <li>
                 <a href="#operation--api-competencies-get"> Search competencies </a>
               </li>
               <li>
                 <a href="#operation--api-competencies--id--get"> Get details of a competency </a>
+              </li>
+              <li>
+                <a href="#operation--api-competencies--id--patch"> Update a competency [coming soon] </a>
+              </li>
+              <li>
+                <a href="#operation--api-competencies--id--delete"> Remove a competency [coming soon] </a>
               </li>
             </ul>
           </section>
@@ -212,6 +221,9 @@
               <li>
                 <a href="#operation--api-visits--id--patch"> Modify a visit </a>
               </li>
+              <li>
+                <a href="#operation--api-visits--id--visitors--visitorId--patch"> Modify a visitor&#x27;s status </a>
+              </li>
             </ul>
           </section>
           <h5>Schema Definitions</h5>
@@ -243,6 +255,7 @@
           <a href="#definition-Locker-bank-summary"> Locker bank summary </a>
           <a href="#definition-Locker-bank-detail"> Locker bank detail </a>
           <a href="#definition-Locker-detail"> Locker detail </a>
+          <a href="#definition-Competency-PATCH-and-POST-example"> Competency PATCH and POST example </a>
           <a href="#definition-Competency-search"> Competency search </a>
           <a href="#definition-Competency-summary"> Competency summary </a>
           <a href="#definition-Competency-detail"> Competency detail </a>
@@ -264,6 +277,7 @@
           <a href="#definition-Visit"> Visit </a>
           <a href="#definition-Visit-POST-example"> Visit POST example </a>
           <a href="#definition-Visit-PATCH-example"> Visit PATCH example </a>
+          <a href="#definition-Visitor-PATCH-example"> Visitor PATCH example </a>
         </nav>
       </div>
       <div id="docs" class="row collapse expanded drawer" data-drawer>
@@ -290,13 +304,29 @@
                   <a href="events.html#authentication">Authentication section</a> of the accompanying Alarms and Events API documentation to learn how to format your queries, and Command Centre&#39;s Configuration Client online help to learn how to ready the server to receive them (search for &#39;REST API&#39;).</p>
                 <p>Each section contains a list of use cases intended as quick solutions for simple tasks or a how-to to get you started toward your particular goal. However they also serve as a good introduction to the API if you step through them using a web browser, starting at <code>/api</code> on your Command Centre server. To do that, you will need a browser plugin that lets you set an Authorization HTTP header, and a JSON formatter to prettify the results documents. Search the Configuration client&#39;s online help for &#39;test REST API&#39; for guidance. You will also need to prepare Command Centre, as above.</p>
                 <h3 id="licensing">Licensing</h3>
-                <p>All of the API calls described here are available with the RESTCardholders licence. Lockers and locker banks are also available with the RESTStatus licence, and partially with the RESTOverrides licence.</p>
+                <p>All of the API calls described here except visitor management are available with the RESTCardholders licence. Visitor management calls need both RESTCardholders and VisitorManagement. Without RESTCardholders, lockers and locker banks are available with the RESTStatus licence, and partially with the RESTOverrides licence.</p>
+                <p>The server will return a 403 if you attempt an operation for which the server is not licensed.</p>
                 <h3 id="versions">Versions</h3>
                 <p>The body of this document clearly indicates when recent features arrived in the API so that readers with older versions of Command Centre know not to expect them.</p>
                 <h4 id="cardholder-api-changes-on-the-roadmap">Cardholder API changes on the roadmap</h4>
                 <ul>
                   <li>
-                    <p>BREAKING CHANGE: a future version will sort its search results differently if your query does not include a parameter to override the default.</p>
+                    <p>GovPass cards will reveal two new fields, <code>visitorContractor</code> and <code>ownedBySite</code>.</p>
+                  </li>
+                  <li>
+                    <p>POTENTIALLY BREAKING CHANGE: The API route that lets you modify a cardholder by PATCH also works if you send it a POST. It should not, because POSTs create things, not modify them. The fix will break clients that rely on this, but since it was not documented, none should.</p>
+                  </li>
+                  <li>
+                    <p>POTENTIALLY BREAKING CHANGE: PATCH methods may return &quot;200 Success&quot; instead of &quot;204 No Content&quot; and will contain a message from the API giving you feedback on your request. Please be aware that all 200-level response codes mean success, not just the ones old versions have been sending you.</p>
+                  </li>
+                  <li>
+                    <p>A cardholder&#39;s visits and escort.</p>
+                  </li>
+                  <li>
+                    <p>&quot;Revealable&quot; access levels on PDFs.</p>
+                  </li>
+                  <li>
+                    <p>POTENTIALLY BREAKING CHANGE: a future version will sort its search results differently if your query does not include a parameter to override the default.</p>
                   </li>
                   <li>
                     <p>Current versions of the API only show a PDF on a cardholder if he or she has a value for that PDF. That makes it difficult to find out which PDFs a cardholder
@@ -305,16 +335,31 @@
                   <li>
                     <p>You will be able to request the competencies that your operator has the permission to assign. That is determined by privileges, a competency setting, and an operator group setting. Current versions let you request the competencies that your operator has the permission to view, which is a larger set determined by privileges alone, and not suitable for interactive REST clients.</p>
                   </li>
+                </ul>
+                <h4 id="cardholder-api-changes-in-900">Cardholder API changes in 9.00</h4>
+                <ul>
                   <li>
-                    <p>Email address and mobile number PDFs will show whether they are suitable to receive SMS and email notifications.</p>
+                    <p>You can create, delete, and change the the basic configuration of competencies, PDFs, and card types.</p>
                   </li>
                   <li>
-                    <p>Card PINs (write-only).</p>
+                    <p>You can search for cardholders by the access zone they are in.</p>
                   </li>
                 </ul>
                 <h4 id="cardholder-api-changes-in-890">Cardholder API changes in 8.90</h4>
                 <ul>
-                  <li>You can set a reason when re-issuing or removing a card, and the reason appears on the resulting event. The default is the card&#39;s previous state.</li>
+                  <li>
+                    <p>Write-only access to card PINs.</p>
+                  </li>
+                  <li>
+                    <p>You can set a reason when re-issuing or removing a card which will appear on the resulting event. The default is the card&#39;s previous state.</p>
+                  </li>
+                  <li>
+                    <p>You can now
+                      <a href="#operation--api-visits--id--visitors--visitorId--patch">set</a> a visitor&#39;s state (signing in, etc.). Visits will return that, if you ask.</p>
+                  </li>
+                  <li>
+                    <p>Bug fix: removing an operator group from a cardholder by PATCH was not possible in the early versions of 8.70 and 8.80. It was fixed in 8.70.2113, 8.80.1116, and all versions of 8.90.</p>
+                  </li>
                 </ul>
                 <h4 id="cardholder-api-changes-in-880">Cardholder API changes in 8.80</h4>
                 <ul>
@@ -484,6 +529,9 @@
                 <h3 id="efficiency-tips">Efficiency tips</h3>
                 <ul>
                   <li>
+                    <p>When searching for a cardholder (or any other object) by name or PDF value, if you have the exact string, put it in quotes <code>&quot;...&quot;</code>. It is still a case-insensitive search but it attempts to match the entire string. Without the quotes Command Centre will perform a substring search, which is slower and may return more results than you need. In one test, a substring search of half a million cardholders took more than ten seconds, but with quotes it took a tenth of a second. That is a 100x speedup. If the server believes you have omitted the quotes in error, it will include a polite reminder in its results.</p>
+                  </li>
+                  <li>
                     <p>When downloading a significant number of items, sort by ID.</p>
                   </li>
                   <li>
@@ -542,9 +590,6 @@
                     <p>When creating cardholders, assign their cards, groups, and other attributes in the POST. This is significantly quicker than sending a handful of PATCHes chasing after your POST, and if you are interrupted, you will not end up with a partially-configured cardholder.</p>
                   </li>
                   <li>
-                    <p>When searching for a cardholder (or any other object) by name or PDF value, if you have the exact string, put it in quotes <code>&quot;...&quot;</code>. It is still a case-insensitive search but it attempts to match the entire string. Without the quotes Command Centre will perform a substring search, which is slower and may return more results than you need. In one test, a substring search of half a million cardholders took more than ten seconds, but with quotes it took a tenth of a second. That is a 100x speedup.</p>
-                  </li>
-                  <li>
                     <p>When modifying a cardholder, do all your operations in one PATCH. This is much quicker than doing it in several smaller PATCHes.</p>
                   </li>
                 </ul>
@@ -565,6 +610,9 @@
                   <h5>Schemes:
                     <span>https</span>
                   </h5>
+                  <h5>Version:
+                    <span>1.0.0</span>
+                  </h5>
                 </section>
               </div>
             </div>
@@ -582,13 +630,14 @@
                   <p>Clients authenticate by including a pre-shared API key in the <code>Authorization</code> header of each request. Command Centre generates an API key when you create an endpoint for your clients to connect to. Search the Configuration Client online help for &#39;REST API&#39; for how do do that.</p>
                   <p>The API key will be in the format <code>XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX</code> and should be in the header following an authorisation method of <code>GGL-API-KEY</code> and a space. Both should be in upper case. For example:</p>
                   <p><code>Authorization: GGL-API-KEY C774-B01F-D695-AA4B-215F-A158-AC22-ADEB</code></p>
-                  <p>Early versions of Command Centre allowed you to omit the &#39;GGL-API-KEY&#39;. Later versions will reject you with a 401 if you do that.</p>
+                  <p>Early versions of Command Centre allowed you to omit the &#39;GGL-API-KEY&#39;. Later versions of CC and all versions of the API gateway will reject you with a 401 if you do that.</p>
                   <p>Depending on Command Centre&#39;s site configuration, its REST API may also require a client certificate with each request. In versions up to and including 8.40 this was controlled by a flag labelled &#39;Do not require pinned client certficates&#39; on the &#39;Web Services&#39; tab of the server properties. In 8.50 that flag&#39;s label changed to &#39;Enable REST Clients with no client certificate&#39;, and its behaviour changed slightly when turned on.</p>
                   <p>If off, for all versions of CC, an incoming request&#39;s certificate has to match the thumbprint on its API key&#39;s REST Client item, and REST Client items with a blank thumbprint field do not work at all. This is how it ships, and it is the recommended way of running a production server.</p>
                   <p>If &#39;Do not require pinned client certificates&#39; was turned on in versions up to and including 8.40, the server did not check any client certificates. If that flag is turned on in 8.50, now relabelled &#39;Enable REST Clients with no client certificate&#39;, it still does not check the client certificate if the thumbprint field of the matching REST Client item is blank, but if the Client item has a thumbprint, the server will reject connections with the wrong certificate.</p>
                   <p>See the Configuration Client help for instructions on where to enter REST Client thumbprints.</p>
                   <p>Also note that if IP filtering is enabled on the REST Client item in Command Centre, the API will only accept connections from the IP address ranges configurated into that client item.</p>
                   <p>If a connection attempt fails, the server will return a 401 and raise an event containing its reason for refusing the request. If that happens too often, the server will stop reporting each offence and will instead create a summary alarm at a much lower rate. The details of the alarm tell you how many failed attempts there have been since the start of the flood. The server will stay in this mode of reduced reporting until several minutes pass without a failed connection attempt.</p>
+                  <p>The current failure limit is ten errors inside one minute. After that you will receive one &quot;a large volume of requests has been denied&quot; alarm every minute while the failures continue until five minutes passes without a failure.</p>
                   <p>The most common queries we receive from our integrators relate to their certificate handling. If your client&#39;s HTTP client library complains about certificates the first thing to check is Command Centre&#39;s alarm list. If there are &#39;invalid client certificate&#39; alarms there, your client is not sending the certificate CC is expecting. If there are no alarms then the client is most likely rejecting the server&#39;s certificate.</p>
                 </section>
                 <section class="swagger-security-definition-properties">
@@ -645,7 +694,10 @@
                     <td valign=top>
                       <a href=rest.html>Status and overrides</a>
                     </td>
-                    <td> These functions let you monitor and override several more Command Centre item types. For example you can use them to watch the status of inputs, open doors, run macros, and modify schedules. </td>
+                    <td> These functions let you monitor and override several Command Centre item types, including access zones, alarm zones, doors, fence zones, inputs, outputs, macros, elevator groups, interlock groups, and schedules.
+                      <p> Despite its name this section does not cover
+                        <a href="events.html#status-subscriptions">mass-monitoring item status</a>. </td>
+                    </p>
                   </tr>
                   <tr>
                     <td valign=top>
@@ -922,7 +974,7 @@
               <p>You can form the name of a field by joining the components of its JSON path with dots. Fields at the root level of the cardholder object, such as <code>firstName</code> and <code>@emailAddress</code> (a PDF), have just one component. Fields that are one level down, such as <code>accessGroups.status</code>, have two.</p>
               <p>Treat the string matches as case sensitive: use <code>lastName</code> rather than <code>lastname</code>.</p>
               <p>To serve as examples, this is the list you can choose from in 8.30:</p>
-              <p><code>href</code>, <code>id</code>, <code>firstName</code>, <code>lastName</code>, <code>shortName</code>, <code>description</code>, <code>authorised</code>, <code>lastSuccessfulAccessTime</code>, <code>lastSuccessfulAccessZone</code>, <code>division</code>, <code>personalDataFields</code>, <code>cards</code>, <code>accessGroups</code>, <code>competencies</code>, <code>notes</code>, <code>notifications</code>, <code>relationships</code>, <code>lockers</code>, <code>cards.href</code>, <code>cards.number</code>, <code>cards.from</code>, <code>cards.until</code>, <code>cards.cardSerialNumber</code>, <code>cards.type</code>, <code>cards.status</code>, <code>cards.invitation</code>, <code>cards.issueLevel</code>, <code>cards.pivData</code>, <code>cards.pivData.chuid</code>, <code>cards.pivData.pivStatus</code>, <code>cards.pivData.lastCheckTime</code>, <code>cards.pivData.chuid.hash</code>, <code>cards.pivData.chuid.fascn</code>, <code>cards.pivData.chuid.duns</code>, <code>cards.pivData.chuid.orgIdentifier</code>, <code>cards.invitation.href</code>, <code>cards.invitation.singleFactorOnly</code>, <code>cards.invitation.email</code>, <code>cards.invitation.mobile</code>, <code>cards.notifications.enabled</code>, <code>cards.notifications.from</code>, <code>cards.notifications.until</code>, <code>cards.accessGroups.href</code>, <code>cards.accessGroups.accessGroup</code>, <code>cards.accessGroups.from</code>, <code>cards.accessGroups.until</code>, <code>cards.accessGroups.status</code>, <code>cards.relationships.href</code>, <code>cards.relationships.cardholder</code>, <code>cards.relationships.role</code>, <code>cards.lockers.href</code>, <code>cards.lockers.locker</code>, <code>cards.lockers.from</code>, <code>cards.lockers.until</code></p>
+              <p><code>href</code>, <code>id</code>, <code>firstName</code>, <code>lastName</code>, <code>shortName</code>, <code>description</code>, <code>authorised</code>, <code>lastSuccessfulAccessTime</code>, <code>lastSuccessfulAccessZone</code>, <code>division</code>, <code>personalDataFields</code>, <code>cards</code>, <code>accessGroups</code>, <code>competencies</code>, <code>notes</code>, <code>notifications</code>, <code>relationships</code>, <code>lockers</code>, <code>cards.href</code>, <code>cards.number</code>, <code>cards.from</code>, <code>cards.until</code>, <code>cards.cardSerialNumber</code>, <code>cards.type</code>, <code>cards.status</code>, <code>cards.invitation</code>, <code>cards.issueLevel</code>, <code>cards.pivData</code>, <code>cards.pivData.chuid</code>, <code>cards.pivData.pivStatus</code>, <code>cards.pivData.lastCheckTime</code>, <code>cards.pivData.chuid.hash</code>, <code>cards.pivData.chuid.fascn</code>, <code>cards.pivData.chuid.duns</code>, <code>cards.pivData.chuid.orgIdentifier</code>, <code>cards.invitation.href</code>, <code>cards.invitation.singleFactorOnly</code>, <code>cards.invitation.email</code>, <code>cards.invitation.mobile</code>, <code>notifications.enabled</code>, <code>notifications.from</code>, <code>notifications.until</code>, <code>accessGroups.href</code>, <code>accessGroups.accessGroup</code>, <code>accessGroups.from</code>, <code>accessGroups.until</code>, <code>accessGroups.status</code>, <code>relationships.href</code>, <code>relationships.cardholder</code>, <code>relationships.role</code>, <code>lockers.href</code>, <code>lockers.locker</code>, <code>lockers.from</code>, <code>lockers.until</code></p>
               <p>Later versions of Command Centre added many more. See the
                 <a href="#operation--api-cardholders--id--get">details</a> operation for the complete list of cardholder fields.</p>
               <p>A special value <code>default</code> applies a default set of fields that varies with the call you&#39;re making.</p>
@@ -1193,6 +1245,7 @@
                     <a href="#definition-Cardholder-POST-example">cardholder POST example</a> for details.</p>
                   <p>You will achieve better performance if you combine all you want to achieve into one POST, rather than creating the cardholder bare with a POST then adding cards, groups, PDFs, etc., with PATCHes later.</p>
                   <p>When successful it returns a location header containing the address of the new cardholder.</p>
+                  <p>Note that you can only create one cardholder per POST.</p>
                 </section>
               </div>
             </div>
@@ -1243,7 +1296,8 @@
     {
       <span class="hljs-attr">&quot;type&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/card_types/600&quot;</span>
-      }
+      },
+      <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>
     },
     {
       <span class="hljs-attr">&quot;type&quot;</span>: {
@@ -1358,7 +1412,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The operator does not have a privilege that allows creating cardholders, or you attempted to set a field for which the operator has no privilege (probably &#39;notes&#39;).</p>
+                      <p>The operator does not have a privilege that allows creating cardholders, or you attempted to set a field for which the operator has no privilege (probably &#39;notes&#39;), or the server has reached its licensed limit of cardholders.</p>
                     </div>
                   </div>
                 </section>
@@ -1575,7 +1629,12 @@
       <span class="hljs-attr">&quot;from&quot;</span>: <span class="hljs-string">&quot;2017-01-01T00:00:00Z&quot;</span>,
       <span class="hljs-attr">&quot;until&quot;</span>: <span class="hljs-string">&quot;2017-12-31T11:59:59Z&quot;</span>,
       <span class="hljs-attr">&quot;credentialClass&quot;</span>: <span class="hljs-string">&quot;mobile&quot;</span>,
-      <span class="hljs-attr">&quot;trace&quot;</span>: <span class="hljs-literal">false</span>
+      <span class="hljs-attr">&quot;trace&quot;</span>: <span class="hljs-literal">false</span>,
+      <span class="hljs-attr">&quot;lastPrintedOrEncodedTime&quot;</span>: <span class="hljs-string">&quot;2020-08-10T09:20:50Z&quot;</span>,
+      <span class="hljs-attr">&quot;lastPrintedOrEncodedIssueLevel&quot;</span>: <span class="hljs-number">1</span>,
+      <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>,
+      <span class="hljs-attr">&quot;visitorContractor&quot;</span>: <span class="hljs-literal">false</span>,
+      <span class="hljs-attr">&quot;ownedBySite&quot;</span>: <span class="hljs-literal">false</span>
     }
   ],
   <span class="hljs-attr">&quot;accessGroups&quot;</span>: [
@@ -1684,8 +1743,6 @@
       <span class="hljs-attr">&quot;enableVipFeatures&quot;</span>: <span class="hljs-literal">false</span>
     }
   ],
-  <span class="hljs-attr">&quot;lastPrintedOrEncodedTime&quot;</span>: <span class="hljs-string">&quot;2020-08-10T09:20:50Z&quot;</span>,
-  <span class="hljs-attr">&quot;lastPrintedOrEncodedIssueLevel&quot;</span>: <span class="hljs-number">1</span>,
   <span class="hljs-attr">&quot;updates&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>,
   <span class="hljs-attr">&quot;redactions&quot;</span>: [
     {
@@ -1829,7 +1886,8 @@
       {
         <span class="hljs-attr">&quot;type&quot;</span>: {
           <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/card_types/354&quot;</span>
-        }
+        },
+        <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>
       },
       {
         <span class="hljs-attr">&quot;type&quot;</span>: {
@@ -1851,7 +1909,8 @@
         <span class="hljs-attr">&quot;until&quot;</span>: <span class="hljs-string">&quot;&quot;</span>,
         <span class="hljs-attr">&quot;status&quot;</span>: {
           <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;Stolen&quot;</span>
-        }
+        },
+        <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>
       }
     ],
     <span class="hljs-attr">&quot;remove&quot;</span>: [
@@ -1951,12 +2010,12 @@
     <span class="hljs-attr">&quot;add&quot;</span>: [
       {
         <span class="hljs-attr">&quot;operatorGroup&quot;</span>: {
-          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/access_groups/532&quot;</span>
+          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/operator_groups/532&quot;</span>
         }
       },
       {
         <span class="hljs-attr">&quot;operatorGroup&quot;</span>: {
-          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/access_groups/535&quot;</span>
+          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/operator_groups/535&quot;</span>
         }
       }
     ],
@@ -2000,6 +2059,14 @@
             <div class="doc-row">
               <div class="doc-copy">
                 <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">200 OK</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success. The response body will contain feedback from the server about your PATCH.</p>
+                    </div>
+                  </div>
                   <div class="prop-row prop-group">
                     <div class="prop-name">
                       <div class="prop-title">204 No Content</div>
@@ -2110,7 +2177,7 @@
                       <div class="prop-title">400 Bad Request</div>
                     </div>
                     <div class="prop-value">
-                      <p>Deleting the cardholder failed. This happens when the cardholder is critical part of another construct (a personalised notification, for example).</p>
+                      <p>Deleting the cardholder failed. This happens when the cardholder is a critical part of another construct (a personalised notification, for example).</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -4040,8 +4107,145 @@
               <p>They have their own access privileges, so operators can see or edit a cardholder&#39;s competencies based on the competency&#39;s settings as well as the cardholder&#39;s division and the privileges the operator has in that division.</p>
               <p>Notification settings on the competency cause advance warnings to go to the cardholder and his or her related cardholders (line managers, for example) before the competency expires.</p>
               <p>Competencies differ from access groups in that a cardholder can have only one link to a given competency. Attempting to create another will either fail or raise a stateful alarm depending on your version of Command Centre.</p>
-              <p>The REST API gives you read access to competencies through the same two functions as other objects: search and details, described below.</p>
+              <p>The REST API gives you access to competencies through create, search, dereference, update, and delete functions described below.</p>
               <p>The Configuration Client online help describes competencies fully.</p>
+            </div>
+          </div>
+          <div id="operation--api-competencies-post" class="operation panel" data-traverse-target="operation--api-competencies-post">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Competencies">Competencies</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">Create a competency [coming soon]</span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">POST</span>
+                  <span class="operation-path">/api/competencies</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-description">
+                  <p>Creates a new competency.</p>
+                  <p>The POST expects a document in the same format as the
+                    <a href="#definition-Competency">the competency detail</a> but with far fewer fields. An example is
+                    <a href="#definition-Competency-PATCH-and-POST-example">this POST example</a>.</p>
+                  <p>When successful it returns a <code>location</code> header containing the address of the new competency.</p>
+                  <p>Note that you can only create one competency per POST.</p>
+                  <p>Do not code this URL into your application. Take it from the results of <code>GET /api</code>.</p>
+                  <p>Creating a competency is coming in a future version of Command Centre.</p>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-request-body">
+                  <div class="prop-row">
+                    <div class="prop-name">
+                      <div class="swagger-request-model">
+                        <span class="">
+                          <a class="json-schema-ref" href="#/definitions/Competency PATCH and POST example">Competency PATCH and POST example</a>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="prop-value columns small-6">
+                      <!-- <div class="swagger-request-description"> -->
+                      <p>There are no mandatory fields. If you do not specify a division when creating a competency, or any other item for that matter, the API will put it in the root division.</p>
+                      <!-- </div> -->
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Request Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;New competency&quot;</span>,
+  <span class="hljs-attr">&quot;shortName&quot;</span>: <span class="hljs-string">&quot;C4&quot;</span>,
+  <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Translated automatically.&quot;</span>,
+  <span class="hljs-attr">&quot;division&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
+  },
+  <span class="hljs-attr">&quot;notes&quot;</span>: <span class="hljs-string">&quot;A very long string.&quot;</span>
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">201 Created</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success. Check the response body for feedback about your request.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">400 Bad Request</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The body of the POST did not describe a valid competency. You may have tried to give the new competency the same name as an existing one.</p>
+                      <p>See the body of the response for help.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">403 Forbidden</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The operator does not have a privilege on the division that allows creating items inside it (&#39;Configure Site&#39;), or the server has reached its licensed limit of competencies.</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Response Headers
+                    <span>(201 Created)</span>
+                  </h5>
+                  <section class="swagger-response-headers">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th class="swagger-response-header-name"></th>
+                          <th class="swagger-response-header-description"></th>
+                          <th class="swagger-response-header-data-type"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr class="swagger-response-header-location">
+                          <td> location
+                            <td>
+                              <p>The href of the new competency.</p>
+                            </td>
+                            <td>
+                              <span class="json-property-type">string</span>
+                              <span class="json-property-format">(url)</span>
+                              <span class="json-property-range" title="Value limits"></span>
+                            </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </section>
+                </section>
+              </div>
             </div>
           </div>
           <div id="operation--api-competencies-get" class="operation panel" data-traverse-target="operation--api-competencies-get">
@@ -4409,6 +4613,207 @@
                   <!-- </div> -->
                 </section>
               </div>
+            </div>
+          </div>
+          <div id="operation--api-competencies--id--patch" class="operation panel" data-traverse-target="operation--api-competencies--id--patch">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Competencies">Competencies</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">Update a competency [coming soon]</span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">PATCH</span>
+                  <span class="operation-path">/api/competencies/{id}</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-description">
+                  <p>This is the call you use to update a division&#39;s name, short name, description, notes, or division.</p>
+                  <p>The PATCH expects a document in the same format as the
+                    <a href="#definition-Competency-detail">the competency detail</a> but with fewer fields. An example is
+                    <a href="#definition-Competency-PATCH-and-POST-example">this PATCH example</a>.</p>
+                  <p>Patching competencies is coming to a future version of Command Centre.</p>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-request-body">
+                  <div class="prop-row">
+                    <div class="prop-name">
+                      <div class="swagger-request-model">
+                        <span class="">
+                          <a class="json-schema-ref" href="#/definitions/Competency PATCH and POST example">Competency PATCH and POST example</a>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="prop-value columns small-6">
+                      <!-- <div class="swagger-request-description"> -->
+                      <p>There are no mandatory fields.</p>
+                      <!-- </div> -->
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Request Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;New competency&quot;</span>,
+  <span class="hljs-attr">&quot;shortName&quot;</span>: <span class="hljs-string">&quot;C4&quot;</span>,
+  <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Translated automatically.&quot;</span>,
+  <span class="hljs-attr">&quot;division&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
+  },
+  <span class="hljs-attr">&quot;notes&quot;</span>: <span class="hljs-string">&quot;A very long string.&quot;</span>
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">200 OK</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success. The response body will contain feedback from the server about your PATCH.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">204 No Content</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">400 Bad Request</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The body of the PATCH did not describe a valid competency. See the body of the response for help on what went wrong. It may be that you tried to use the name of another competency: no two items of the same type can have the same name. Or you may have tried to set the competency&#39;s division to one that is not visible to you.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">403 Forbidden</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The operator has a privilege that allows viewing the item but not modifying it, or you tried to set the division to one you cannot configure, or the server is missing the necessary licence.</p>
+                      <p>You need either the &#39;Configure Site&#39; on the item you are changing, which means you need on it on the item&#39;s current division. You also need it on the new division, if you are changing that.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">404 Not Found</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>That is not the URL of a competency or your operator does not have the privilege to view it. This probably means you have built the URL yourself instead of taking it from the results of a
+                        <a href="#operation--api-competencies--operation--get">GET</a>.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">409 Conflict</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The item is locked for editing by another operator. The body of the response will tell you which operator is holding the lock.</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples"> </div>
+            </div>
+          </div>
+          <div id="operation--api-competencies--id--delete" class="operation panel" data-traverse-target="operation--api-competencies--id--delete">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Competencies">Competencies</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">Remove a competency [coming soon]</span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">DELETE</span>
+                  <span class="operation-path">/api/competencies/{id}</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-description">
+                  <p>This call removes a competency from Command Centre.</p>
+                  <p>Deleting competencies is coming to a future version of Command Centre.</p>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy"> </div>
+              <div class="doc-examples"></div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">204 No Content</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">400 Bad Request</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Deleting the competency failed. This happens when the item is still being used by another item.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">403 Forbidden</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The operator has the permission to view the item but not delete it, or the server is not licensed for the operation.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">404 Not Found</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>That is not the URL of a competency, or the operator is not privileged to view it.</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples"> </div>
             </div>
           </div>
           <h1 id="tag-Card-types" class="swagger-summary-tag" data-traverse-target="tag-Card-types">Card types</h1>
@@ -6927,15 +7332,18 @@
                   <div class="prop-row prop-group">
                     <div class="prop-name">
                       <div class="prop-title">200 OK</div>
-                      <div class="prop-ref">
-                        <span class="">
-                          <a class="json-schema-ref" href="#/definitions/Redaction">Redaction</a>
-                        </span>
-                      </div>
+                      <div class="prop-ref"></div>
                       <!-- <span class="swagger-global"></span> <span class="json-schema-reference"><a href=""></a></span> -->
                     </div>
                     <div class="prop-value">
-                      <p>An array of redactions and a link to the next page.</p>
+                      <p>An array of redactions, and a link to the next page if any.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-inner">
+                    <div class="prop-name">type</div>
+                    <div class="prop-value">
+                      <span class="json-property-type">object</span>
+                      <span class="json-property-range" title="Value limits"></span>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -6957,21 +7365,28 @@
                   <html>
                   <head></head>
                   <body><pre><code class="hljs language-json">{
-  <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/redactions/625&quot;</span>,
-  <span class="hljs-attr">&quot;type&quot;</span>: <span class="hljs-string">&quot;normalEvents&quot;</span>,
-  <span class="hljs-attr">&quot;when&quot;</span>: <span class="hljs-string">&quot;2023-01-01T00:00:00Z&quot;</span>,
-  <span class="hljs-attr">&quot;before&quot;</span>: <span class="hljs-string">&quot;2022-01-01T00:00:00Z&quot;</span>,
-  <span class="hljs-attr">&quot;status&quot;</span>: <span class="hljs-string">&quot;pending&quot;</span>,
-  <span class="hljs-attr">&quot;redactionOperator&quot;</span>: {
-    <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;REST Operator&quot;</span>,
-    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/items/100&quot;</span>
-  },
-  <span class="hljs-attr">&quot;cardholder&quot;</span>: {
-    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/630&quot;</span>
-  },
-  <span class="hljs-attr">&quot;finished&quot;</span>: <span class="hljs-string">&quot;2022-01-01T00:00:00Z&quot;</span>,
-  <span class="hljs-attr">&quot;message&quot;</span>: <span class="hljs-string">&quot;Invalid cardholder&quot;</span>,
-  <span class="hljs-attr">&quot;details&quot;</span>: <span class="hljs-string">&quot;&quot;</span>
+  <span class="hljs-attr">&quot;results&quot;</span>: [
+    {
+      <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/redactions/625&quot;</span>,
+      <span class="hljs-attr">&quot;type&quot;</span>: <span class="hljs-string">&quot;normalEvents&quot;</span>,
+      <span class="hljs-attr">&quot;when&quot;</span>: <span class="hljs-string">&quot;2023-01-01T00:00:00Z&quot;</span>,
+      <span class="hljs-attr">&quot;before&quot;</span>: <span class="hljs-string">&quot;2022-01-01T00:00:00Z&quot;</span>,
+      <span class="hljs-attr">&quot;status&quot;</span>: <span class="hljs-string">&quot;pending&quot;</span>,
+      <span class="hljs-attr">&quot;redactionOperator&quot;</span>: {
+        <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;REST Operator&quot;</span>,
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/items/100&quot;</span>
+      },
+      <span class="hljs-attr">&quot;cardholder&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/630&quot;</span>
+      },
+      <span class="hljs-attr">&quot;finished&quot;</span>: <span class="hljs-string">&quot;2022-01-01T00:00:00Z&quot;</span>,
+      <span class="hljs-attr">&quot;message&quot;</span>: <span class="hljs-string">&quot;Invalid cardholder&quot;</span>,
+      <span class="hljs-attr">&quot;details&quot;</span>: <span class="hljs-string">&quot;&quot;</span>
+    }
+  ],
+  <span class="hljs-attr">&quot;next&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/cardholders/redactions?top=1&amp;pos=625&quot;</span>
+  }
 }
 </code></pre> </body>
                   </html>
@@ -7070,7 +7485,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The operator does not have permissions to redact or to delete a cardholder, or the server is not licensed for cardholder operations.</p>
+                      <p>The operator does not have permissions to redact or to delete a cardholder, or redactions are not enabled on the server, or the server is not licensed for cardholder operations.</p>
                     </div>
                   </div>
                 </section>
@@ -7558,7 +7973,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTCardholders licence.</p>
+                      <p>The site does not have both the RESTCardholders and VisitorManagement licences.</p>
                     </div>
                   </div>
                 </section>
@@ -7723,7 +8138,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTCardholders licence.</p>
+                      <p>The site does not have both the RESTCardholders and VisitorManagement licences.</p>
                     </div>
                   </div>
                 </section>
@@ -7866,7 +8281,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTCardholders or RESTEvents licence</p>
+                      <p>The site does not have both the RESTCardholders and VisitorManagement licences.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -7924,15 +8339,25 @@
   ],
   <span class="hljs-attr">&quot;visitors&quot;</span>: [
     {
+      <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/visits/941/visitors/940&quot;</span>,
       <span class="hljs-attr">&quot;cardholder&quot;</span>: {
         <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;Red Adair&quot;</span>,
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/940&quot;</span>
+      },
+      <span class="hljs-attr">&quot;status&quot;</span>: {
+        <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;Expected Back&quot;</span>,
+        <span class="hljs-attr">&quot;type&quot;</span>: <span class="hljs-string">&quot;expectedBack&quot;</span>
       }
     },
     {
+      <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/visits/941/visitors/9040&quot;</span>,
       <span class="hljs-attr">&quot;cardholder&quot;</span>: {
         <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;James Page&quot;</span>,
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/9040&quot;</span>
+      },
+      <span class="hljs-attr">&quot;status&quot;</span>: {
+        <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;On-Site&quot;</span>,
+        <span class="hljs-attr">&quot;type&quot;</span>: <span class="hljs-string">&quot;onSite&quot;</span>
       }
     }
   ]
@@ -8064,6 +8489,14 @@
                 <section class="swagger-responses">
                   <div class="prop-row prop-group">
                     <div class="prop-name">
+                      <div class="prop-title">200 OK</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success. The response body will contain feedback from the server about your PATCH.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
                       <div class="prop-title">204 No Content</div>
                     </div>
                     <div class="prop-value">
@@ -8084,7 +8517,7 @@
                       <div class="prop-title">403 Forbidden</div>
                     </div>
                     <div class="prop-value">
-                      <p>The site does not have the RESTCardholders licence, or the operator does not have the privilege to modify that visit (&#39;Edit Visits&#39;), or you attempted to set a field for which you have no privilege, or the visit has expired. See the descriptions for each field for some rules about their use.</p>
+                      <p>The site does not have the RESTCardholders and VisitorManagement licences, or the operator does not have the privilege to modify that visit (&#39;Edit Visits&#39;), or you attempted to set a field for which you have no privilege, or the visit has expired. See the descriptions for each field for some rules about their use.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -8093,6 +8526,115 @@
                     </div>
                     <div class="prop-value">
                       <p>That is not the URL of a visit, or it is a visit that the operator does not have the privilege to see (&#39;View Visits&#39; or &#39;Edit Visits&#39;).</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples"> </div>
+            </div>
+          </div>
+          <div id="operation--api-visits--id--visitors--visitorId--patch" class="operation panel" data-traverse-target="operation--api-visits--id--visitors--visitorId--patch">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Visits">Visits</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">Modify a visitor&apos;s status</span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">PATCH</span>
+                  <span class="operation-path">/api/visits/{id}/visitors/{visitorId}</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-description">
+                  <p>Changes a visitor&#39;s state for a visit. This is how you mark a visitor as signing in, signed in, on site, off site again, etc.</p>
+                  <p>Doing so will create an event if your visitor was not already in the state you attempted to move them to.</p>
+                  <p>Note that this URL is different from a normal cardholder href because a cardholder can be a visitor on more than one visit at a time.</p>
+                  <p>Take this href from a
+                    <a href="#definition-Visit-search">visit search</a> or
+                    <a href="#definition-Visit">visit</a>.</p>
+                  <p>New to 8.90.</p>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-request-body">
+                  <div class="prop-row">
+                    <div class="prop-name">
+                      <div class="swagger-request-model">
+                        <span class="">
+                          <a class="json-schema-ref" href="#/definitions/Visitor PATCH example">Visitor PATCH example</a>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="prop-value columns small-6">
+                      <!-- <div class="swagger-request-description"> -->
+                      <p>This must contain a block called <code>status</code> containing a string called <code>value</code>, giving your desired state of the visitor.</p>
+                      <!-- </div> -->
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Request Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;status&quot;</span>: {
+    <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;signingIn&quot;</span>
+  }
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">204 No Content</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">400 Bad Request</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The body of the PATCH did not describe a valid change to a visitor&#39;s status. Check the body of the server&#39;s response for hints.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">403 Forbidden</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The site does not have the RESTCardholders and VisitorManagement licences, or the operator does not have the privilege to modify that visit (&#39;Edit Visits&#39;), or you attempted to set a field for which you have no privilege, or the visit has expired.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">404 Not Found</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>That is not the URL of a visitor, or it is a visitor on a visit that the operator does not have the privilege to see (&#39;View Visits&#39; or &#39;Edit Visits&#39;).</p>
                     </div>
                   </div>
                 </section>
@@ -8332,7 +8874,7 @@
                           <span class="json-property-read-only"></span>
                         </dt>
                         <dd>
-                          <p>The last zone the cardholder entered. If the cardholder is a visitor and their last movement was to leave the site, this will be their visit&#39;s reception, not an access zone. 8.50 and later will present only the name of the reception and withhold the href.</p>
+                          <p>The last zone the cardholder entered. If the cardholder is a visitor and their last movement was to leave the site, this will be their visit&#39;s reception, not an access zone. 8.50 and later will present only the name of the reception and withhold the href in that case.</p>
                         </dd>
                         <dt data-property-name="serverDisplayName" class="has-description">
                           <span class="json-property-name">serverDisplayName:</span>
@@ -8363,7 +8905,7 @@
                           <p>Put your PDF values here when creating or modifying a cardholder. Note that to hold a PDF value the cardholder must be a member of an access group that has that PDF attached to it. In this example, being a member of the special projects group has granted our Mr. Boothroyd the student ID and photo PDFs.</p>
                           <p>To set an image PDF, Base64-encode the image and send it as a string. There is one in the
                             <a href="#definition-Cardholder-POST-example">cardholder POST example</a>.</p>
-                          <p>Date PDFs are only accurate to a day, so version 8.75 and later will ignore the time and time zone components if you send them. 8.70 and earlier will first perform a timezone correction then convert it to UTC before truncating the time, which might shift the date back a day if you specified a positive timezone offset. To be sure that does not happen, put <code>T00:00:00Z</code> on the end of your date.</p>
+                          <p>Date PDFs are only accurate to a day, so version 8.75 and later will ignore the time and time zone components if you send them. 8.70 and earlier will first perform a timezone correction then convert it to UTC before truncating the time, which might shift the date back a day if you specified a positive timezone offset. To be sure that does not happen on a server older than 8.75, put <code>T00:00:00Z</code> on the end of your date.</p>
                         </dd>
                         <dt data-property-name="disableCipherPad" class="has-description">
                           <span class="json-property-name">disableCipherPad:</span>
@@ -8399,6 +8941,7 @@
                         </dt>
                         <dd>
                           <p>The name that the operator uses when logging in to the interactive clients. Absent if blank.</p>
+                          <p>Send the empty string <code>&quot;&quot;</code> to clear it.</p>
                         </dd>
                         <dt data-property-name="operatorPassword" class="has-description">
                           <span class="json-property-name">operatorPassword:</span>
@@ -8433,6 +8976,7 @@
                         </dt>
                         <dd>
                           <p>This user&#39;s Windows username. For an example of the format that will work in your organisation, look in the &#39;Windows logon&#39; field of the &#39;Operator configuration&#39; tab of a cardholder&#39;s properties in the Configuration Client.</p>
+                          <p>Send the empty string <code>&quot;&quot;</code> to clear it.</p>
                         </dd>
                         <dt data-property-name="personalDataDefinitions" class="has-description">
                           <span class="json-property-name">personalDataDefinitions:</span>
@@ -8444,10 +8988,10 @@
                           <span class="json-property-range" title="Value limits"></span>
                         </dt>
                         <dd>
-                          <p>All the personal data definitions and values for this cardholder. It is an array of objects, each with one key/value pair. The key is the name of the PDF preceded by an &#39;@&#39;; the value is an object containing the definition of the PDF (common for all cardholders) and the value for this cardholder. The value block of an image PDF will contain an href to the image.</p>
+                          <p>All the personal data definitions and values for this cardholder. It is an array of objects, each with one key/value pair. The key is the name of the PDF preceded by an &#39;@&#39;; the value is an object containing the definition of the PDF (common for all cardholders) and the value for this cardholder. The <code>value</code> block of an image PDF will contain an href to the image.</p>
                           <p>Your visibility of a cardholder&#39;s PDF value depends entirely on the PDF&#39;s access settings in your operator groups, or if it has none of those, its default privilege. The PDF&#39;s division is irrelevant. So if you were expecting a PDF value here when none arrived, ensure the cardholder has a value for that PDF (because the server does not send nulls) then check the PDF&#39;s access settings in all of your operator groups, then the default visibility on the PDF item itself.</p>
-                          <p>When you send this array in a POST or PATCH, Command Centre will take the notifications flag from here. It will use the value from here too, but the &#39;@name&#39; field at the root of the cardholder object takes priority.</p>
-                          <p>To request this block using the &#39;fields&#39; parameter, use &#39;personalDataFields&#39; (note &#39;fields&#39; not &#39;definitions&#39;). Doing so will not only give you the personalDataDefinitions block, but also the values at the root level (with their names preceded by &#39;@&#39;-signs).</p>
+                          <p>When you send this array in a POST or PATCH, Command Centre will take the <code>notifications</code> flag from here. It can take <code>value</code> from here too, but if you also send a field in the root of the cardholder with the name of the PDF preceded by an &#39;@&#39;, that one wins.</p>
+                          <p>To request this block using the &#39;fields&#39; parameter, use <code>personalDataFields</code> (note &#39;fields&#39; not &#39;definitions&#39;). Doing so will not only give you the <code>personalDataDefinitions</code> block, but also the values at the root level (with their names preceded by &#39;@&#39;-signs).</p>
                         </dd>
                         <dt class="json-inner-schema">
                           <section class="json-schema-array-items">
@@ -8470,7 +9014,7 @@
                           <span class="json-property-range" title="Value limits"></span>
                         </dt>
                         <dd>
-                          <p>All the cards for this cardholder. Note that even though Command Centre calls these things &#39;cards&#39;, they include mobile credentials that do not require a physical card.</p>
+                          <p>All the cards for this cardholder. Note that even though Command Centre calls these things &#39;cards&#39;, they include other types that do not require a physical card, such as digital IDs and mobile credentials.</p>
                         </dd>
                         <dt class="json-inner-schema">
                           <section class="json-schema-array-items">
@@ -8667,27 +9211,6 @@
                             <div class="json-inner-schema"> </div>
                           </section>
                         </dt>
-                        <dt data-property-name="lastPrintedOrEncodedTime" class="has-description">
-                          <span class="json-property-name">lastPrintedOrEncodedTime:</span>
-                          <span class="json-property-type">string</span>
-                          <span class="json-property-format">(date-time)</span>
-                          <span class="json-property-range" title="Value limits"></span>
-                          <span class="json-property-read-only"></span>
-                        </dt>
-                        <dd>
-                          <p>The date and time this card was last printed or encoded. It will not come out by default - you need to ask for it with <code>fields=cards.lastPrintedOrEncodedTime</code>.</p>
-                          <p>Added in 8.40.</p>
-                        </dd>
-                        <dt data-property-name="lastPrintedOrEncodedIssueLevel" class="has-description">
-                          <span class="json-property-name">lastPrintedOrEncodedIssueLevel:</span>
-                          <span class="json-property-type">integer</span>
-                          <span class="json-property-range" title="Value limits">1 ≤ x ≤ 15</span>
-                          <span class="json-property-read-only"></span>
-                        </dt>
-                        <dd>
-                          <p>The issue level of this card when it was last printed or encoded, provided it was non-zero. It will not come out by default - you need to ask for it with <code>fields=cards.lastPrintedOrEncodedIssueLevel</code>.</p>
-                          <p>Added in 8.40.</p>
-                        </dd>
                         <dt data-property-name="updates" class="has-description">
                           <span class="json-property-name">updates:</span>
                           <span class="json-property-type">object</span>
@@ -8707,7 +9230,8 @@
                           <span class="json-property-range" title="Value limits"></span>
                         </dt>
                         <dd>
-                          <p>All the cardholder&#39;s scheduled redactions. Because this is relatively expensive to compute, this field does not appear by default. You must ask for it.</p>
+                          <p>All the cardholder&#39;s scheduled redactions.</p>
+                          <p>Because this is relatively expensive to compute, this field does not appear by default. You must ask for it with <code>fields=redactions</code> or <code>fields=redactions.href,redactions.type,redactions.when</code>, for example.</p>
                           <p>Added in 8.80.</p>
                         </dd>
                         <dt class="json-inner-schema">
@@ -8810,7 +9334,12 @@
       <span class="hljs-attr">&quot;from&quot;</span>: <span class="hljs-string">&quot;2017-01-01T00:00:00Z&quot;</span>,
       <span class="hljs-attr">&quot;until&quot;</span>: <span class="hljs-string">&quot;2017-12-31T11:59:59Z&quot;</span>,
       <span class="hljs-attr">&quot;credentialClass&quot;</span>: <span class="hljs-string">&quot;mobile&quot;</span>,
-      <span class="hljs-attr">&quot;trace&quot;</span>: <span class="hljs-literal">false</span>
+      <span class="hljs-attr">&quot;trace&quot;</span>: <span class="hljs-literal">false</span>,
+      <span class="hljs-attr">&quot;lastPrintedOrEncodedTime&quot;</span>: <span class="hljs-string">&quot;2020-08-10T09:20:50Z&quot;</span>,
+      <span class="hljs-attr">&quot;lastPrintedOrEncodedIssueLevel&quot;</span>: <span class="hljs-number">1</span>,
+      <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>,
+      <span class="hljs-attr">&quot;visitorContractor&quot;</span>: <span class="hljs-literal">false</span>,
+      <span class="hljs-attr">&quot;ownedBySite&quot;</span>: <span class="hljs-literal">false</span>
     }
   ],
   <span class="hljs-attr">&quot;accessGroups&quot;</span>: [
@@ -8919,8 +9448,6 @@
       <span class="hljs-attr">&quot;enableVipFeatures&quot;</span>: <span class="hljs-literal">false</span>
     }
   ],
-  <span class="hljs-attr">&quot;lastPrintedOrEncodedTime&quot;</span>: <span class="hljs-string">&quot;2020-08-10T09:20:50Z&quot;</span>,
-  <span class="hljs-attr">&quot;lastPrintedOrEncodedIssueLevel&quot;</span>: <span class="hljs-number">1</span>,
   <span class="hljs-attr">&quot;updates&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>,
   <span class="hljs-attr">&quot;redactions&quot;</span>: [
     {
@@ -8961,16 +9488,22 @@
                 </section>
                 <section class="json-schema-properties">
                   <dl>
-                    <dt data-property-name="firstName">
+                    <dt data-property-name="firstName" class="has-description">
                       <span class="json-property-name">firstName:</span>
                       <span class="json-property-type">string</span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
-                    <dt data-property-name="lastName">
+                    <dd>
+                      <p>You must supply either this or the last name when creating a cardholder.</p>
+                    </dd>
+                    <dt data-property-name="lastName" class="has-description">
                       <span class="json-property-name">lastName:</span>
                       <span class="json-property-type">string</span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
+                    <dd>
+                      <p>You must supply either this or the first name when creating a cardholder.</p>
+                    </dd>
                     <dt data-property-name="shortName">
                       <span class="json-property-name">shortName:</span>
                       <span class="json-property-type">string</span>
@@ -8993,6 +9526,7 @@
                       <span class="json-property-name">division:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Mandatory when creating any cardholder. In this example, we want all students in division 5387.</p>
@@ -9046,7 +9580,8 @@
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>This example creates one physical card of type 600 using a default card number, and another of type 654 which must be a mobile credential, judging by the invitation block. Command Centre will send an invitation to Nick at those coordinates.</p>
+                      <p>This example creates one physical card of type 600 with a PIN and a system-generated card number, and another of type 654 which--judging by the invitation block--must be a mobile credential. Command Centre will send an invitation to Nick at those coordinates.</p>
+                      <p>Card PINs were added to the API in 8.90.</p>
                     </dd>
                     <dt class="json-inner-schema">
                       <section class="json-schema-array-items">
@@ -9246,7 +9781,8 @@
     {
       <span class="hljs-attr">&quot;type&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/card_types/600&quot;</span>
-      }
+      },
+      <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>
     },
     {
       <span class="hljs-attr">&quot;type&quot;</span>: {
@@ -9491,6 +10027,7 @@
                       <p>Each element of the &#39;add&#39; array will need a &#39;type&#39; member, at the very least. Every card field makes sense here except &#39;href&#39;. Only existing cards have hrefs. This example adds two cards: one has nothing more than the type, so it will receive blank &#39;from&#39; and &#39;until&#39; dates and a computed number and issue level. The other is a mobile credential (it has an &#39;invitation&#39; block) with a custom initial state.</p>
                       <p>Each element of the &#39;update&#39; array should be a card to modify. It will need the href of that card, plus the fields you want to change. Remember you cannot change a card&#39;s type. The example changes the issue level and resets the &#39;until&#39; date.</p>
                       <p>The only field that makes sense in an element of the &#39;remove&#39; array is &#39;href&#39; and &#39;status&#39;.</p>
+                      <p>You can remove and add cards in the same PATCH. In fact you should do that in preference to making multiple API calls. That is a good way of reissuing a mobile credentials, for example: put the href to the old one in the &#39;remove&#39; array and a new invitation in the &#39;add&#39; array. The new credential should have the same card number and the same &#39;type&#39; and &#39;invitation&#39; blocks as the credential you&#39;re re-issuing.</p>
                       <p>Do not put the same href in both the &#39;update&#39; and &#39;remove&#39; arrays.</p>
                       <p>In version 8.90 and later you can specify a card state in the <code>value</code> field inside the <code>status</code> block when removing a card or changing its issue level. It becomes the final state of the card if you remove it or the final state of the card with the previous issue level if you re-issue it, so it must be one of the valid states for the card type. The Gallagher clients and the resulting event call this state the &#39;reason&#39; for the re-issue or removal. By default it will be the same as the card&#39;s current state.</p>
                     </dd>
@@ -9560,10 +10097,9 @@
                     <dd>
                       <p>This can contain two arrays named &#39;add&#39; and &#39;remove&#39;. Every element you send in those arrays should be in the
                         <a href="#definition-Cardholder-operator-group">cardholder operator group schema</a>.</p>
-                      <p>Each element of the &#39;add&#39; array will need an &#39;operatorGroup&#39; member containing an href identifying the operator group to which you wish to add the cardholder.</p>
-                      <p>The only field that makes sense in an element of the &#39;remove&#39; array is the href. Make sure it is the href of the membership, not of the operator group.</p>
-                      <p>There is nothing about an operator group membership that you can change so there is no point to an &#39;update&#39; array. Operator group memberships are, or are not - there is no update.</p>
-                      <p>Supported in 8.50 and later.</p>
+                      <p>Each element of the &#39;add&#39; array will need an &#39;operatorGroup&#39; member containing an href identifying the operator group to which you wish to add the cardholder. Supported in 8.50 and later.</p>
+                      <p>The only field that makes sense in an element of the &#39;remove&#39; array is the href. Make sure it is the href of the membership, not of the operator group. Supported in 8.90 and later.</p>
+                      <p>There is nothing about an operator group membership that you can change so there is no point to an &#39;update&#39; array. Operator group memberships are, or are not: there is no update.</p>
                     </dd>
                     <dt data-property-name="elevatorGroups" class="has-description">
                       <span class="json-property-name">elevatorGroups:</span>
@@ -9610,7 +10146,8 @@
       {
         <span class="hljs-attr">&quot;type&quot;</span>: {
           <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/card_types/354&quot;</span>
-        }
+        },
+        <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>
       },
       {
         <span class="hljs-attr">&quot;type&quot;</span>: {
@@ -9632,7 +10169,8 @@
         <span class="hljs-attr">&quot;until&quot;</span>: <span class="hljs-string">&quot;&quot;</span>,
         <span class="hljs-attr">&quot;status&quot;</span>: {
           <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;Stolen&quot;</span>
-        }
+        },
+        <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>
       }
     ],
     <span class="hljs-attr">&quot;remove&quot;</span>: [
@@ -9732,12 +10270,12 @@
     <span class="hljs-attr">&quot;add&quot;</span>: [
       {
         <span class="hljs-attr">&quot;operatorGroup&quot;</span>: {
-          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/access_groups/532&quot;</span>
+          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/operator_groups/532&quot;</span>
         }
       },
       {
         <span class="hljs-attr">&quot;operatorGroup&quot;</span>: {
-          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/access_groups/535&quot;</span>
+          <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/operator_groups/535&quot;</span>
         }
       }
     ],
@@ -9926,7 +10464,7 @@
               <div class="doc-copy">
                 <section class="json-schema-description">
                   <p>A
-                    <em>card</em> is an access credential, including physical cards and mobile (Bluetooth and NFC) credentials. The server returns it as part of a
+                    <em>card</em> is an access credential, including physical cards and mobile (Bluetooth and NFC) credentials and digital IDs. The server returns it as part of a
                     <a href="#definition-Cardholder-detail">cardholder&#39;s details</a>, and you supply it when creating or modifying a card or credential on a cardholder.</p>
                   <p>Every card has a type, a status, and a validity period. Its type determines other fields of relevance, described below.</p>
                   <p>PIV cards are complex enough to warrant a
@@ -9953,6 +10491,7 @@
                     <dd>
                       <p>For a physical access card, this is its card number. It must be unique across all cards of the same card type. If you leave it blank when creating a card of a type that has a decimal number format, Command Centre will use the next available number.</p>
                       <p>Card numbers for a mobile credential need not be unique. They are strings, and are not used by Command Centre except for display.</p>
+                      <p>Card numbers for digital IDs are GUIDs.</p>
                       <p>This field is mandatory for card types with text or PIV number formats. If the card type has a text card number format with a regular expression and you supply a card number that does not match that regex, Command Centre will reject your update.</p>
                       <p>PIV card numbers must be the same as the card&#39;s FASC-N. PIV-I card numbers must not.</p>
                       <p>One rule is common across all card types: you cannot change the number of an existing card or credential.</p>
@@ -9976,7 +10515,7 @@
                       <p>The issue level of a physical access card. If two cards have the same number but different issue levels, only the one with this issue level will gain access.</p>
                       <p>If you leave it blank when creating a card, Command Centre will pick an appropriate value.</p>
                       <p>If you increase it when modifying a card, all cards with lower issue levels will stop working.</p>
-                      <p>Do not specify one when creating a mobile credential. They do not have issue levels.</p>
+                      <p>Do not specify one when creating or updating a mobile credential or digital ID. They do not have issue levels.</p>
                     </dd>
                     <dt data-property-name="status" class="has-description">
                       <span class="json-property-name">status:</span>
@@ -10029,7 +10568,7 @@
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>The name of the card type, and a link to the card type object.</p>
+                      <p>The name of the card type from the site configuration, and a link to the card type object.</p>
                       <p>When creating a card, the href must be a card type that makes sense for the other values you placed this object.</p>
                       <p>You cannot change a card&#39;s type once it is created.</p>
                     </dd>
@@ -10163,14 +10702,19 @@
                       <span class="json-property-type">string</span>
                       <span class="json-property-enum" title="Possible values">
                         <span class="json-property-enum-item">card</span>,
+                        <span class="json-property-enum-item">digitalId</span>,
+                        <span class="json-property-enum-item">govPass</span>,
+                        <span class="json-property-enum-item">mobile</span>,
                         <span class="json-property-enum-item">piv</span>,
-                        <span class="json-property-enum-item">mobile</span>
+                        <span class="json-property-enum-item">piv-i</span>,
+                        <span class="json-property-enum-item">trackingTag</span>
                       </span>
                       <span class="json-property-range" title="Value limits"></span>
                       <span class="json-property-read-only"></span>
                     </dt>
                     <dd>
-                      <p>This indicates the type of card. Added in 8.00.</p>
+                      <p>This indicates the type of the card. It comes from an enumeration, and is a reliable way of determining the credential&#39;s type.</p>
+                      <p>Added in 8.00.</p>
                     </dd>
                     <dt data-property-name="trace" class="has-description">
                       <span class="json-property-name">trace:</span>
@@ -10181,6 +10725,59 @@
                       <p>If set, badging this card will generate an event.</p>
                       <p>This field is not in the default set so you will not see it unless you ask for it using the <code>fields</code> query parameter.</p>
                       <p>Added in 8.30.</p>
+                    </dd>
+                    <dt data-property-name="lastPrintedOrEncodedTime" class="has-description">
+                      <span class="json-property-name">lastPrintedOrEncodedTime:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-format">(date-time)</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-read-only"></span>
+                    </dt>
+                    <dd>
+                      <p>The date and time this card was last printed or encoded. It will not come out by default - you need to ask for it with <code>fields=cards.lastPrintedOrEncodedTime</code>.</p>
+                      <p>Added in 8.40.</p>
+                    </dd>
+                    <dt data-property-name="lastPrintedOrEncodedIssueLevel" class="has-description">
+                      <span class="json-property-name">lastPrintedOrEncodedIssueLevel:</span>
+                      <span class="json-property-type">integer</span>
+                      <span class="json-property-range" title="Value limits">1 ≤ x ≤ 15</span>
+                      <span class="json-property-read-only"></span>
+                    </dt>
+                    <dd>
+                      <p>The issue level of this card when it was last printed or encoded, provided it was non-zero. It will not come out by default - you need to ask for it with <code>fields=cards.lastPrintedOrEncodedIssueLevel</code>.</p>
+                      <p>Added in 8.40.</p>
+                    </dd>
+                    <dt data-property-name="pin" class="has-description">
+                      <span class="json-property-name">pin:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>Even though this appears in the example of a cardholder GET, this is a write-only field. You can use it in POSTs and PATCHes but the server will not send it to you.</p>
+                      <p>Being numeric, you might be tempted to send PINs to the server without surrounding quotes. However if you do that, leading zeros will be lost when the server converts them to integers. Putting quotes around the PIN forces the server to treat them as strings, which preserves any leading zeros.</p>
+                      <p>8.90 servers will reject your request if the card&#39;s <code>credentialClass</code> is not <code>card</code>, <code>piv</code>, <code>piv-i</code>, or <code>govPass</code>. More recent servers will issue a warning in that case, and will not set the PIN, but will allow the rest of the update.</p>
+                      <p>PINs were added to the API in 8.90.</p>
+                    </dd>
+                    <dt data-property-name="visitorContractor" class="has-description">
+                      <span class="json-property-name">visitorContractor:</span>
+                      <span class="json-property-type">boolean</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>This is a credential property only for GovPass, indicating that the enrolled credential is for a visitor / contractor.</p>
+                      <p>It is a write-once field.</p>
+                      <p>It is on the roadmap for verson 9.0. Until its release, its behaviour is subject to change.</p>
+                    </dd>
+                    <dt data-property-name="ownedBySite" class="has-description">
+                      <span class="json-property-name">ownedBySite:</span>
+                      <span class="json-property-type">boolean</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-read-only"></span>
+                    </dt>
+                    <dd>
+                      <p>This is a credential property only for GovPass, indicating if the site is the owner of the card.</p>
+                      <p>It is a read-only field.</p>
+                      <p>It is on the roadmap for verson 9.0. Until its release, its behaviour is subject to change.</p>
                     </dd>
                   </dl>
                 </section>
@@ -10214,7 +10811,12 @@
   <span class="hljs-attr">&quot;from&quot;</span>: <span class="hljs-string">&quot;2017-01-01T00:00:00Z&quot;</span>,
   <span class="hljs-attr">&quot;until&quot;</span>: <span class="hljs-string">&quot;2017-12-31T11:59:59Z&quot;</span>,
   <span class="hljs-attr">&quot;credentialClass&quot;</span>: <span class="hljs-string">&quot;mobile&quot;</span>,
-  <span class="hljs-attr">&quot;trace&quot;</span>: <span class="hljs-literal">false</span>
+  <span class="hljs-attr">&quot;trace&quot;</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-attr">&quot;lastPrintedOrEncodedTime&quot;</span>: <span class="hljs-string">&quot;2020-08-10T09:20:50Z&quot;</span>,
+  <span class="hljs-attr">&quot;lastPrintedOrEncodedIssueLevel&quot;</span>: <span class="hljs-number">1</span>,
+  <span class="hljs-attr">&quot;pin&quot;</span>: <span class="hljs-string">&quot;153624&quot;</span>,
+  <span class="hljs-attr">&quot;visitorContractor&quot;</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-attr">&quot;ownedBySite&quot;</span>: <span class="hljs-literal">false</span>
 }
 </code></pre> </body>
                   </html>
@@ -10532,9 +11134,9 @@
                 <section class="json-schema-description">
                   <p>An
                     <em>operator group</em> is an object in Command Centre. The connection between an operator group and a cardholder is a
-                    <em>membership</em>. A cardholder can be a member of many groups, and groups usually have more than one member.</p>
-                  <p>Presence in an operator group affects software access. Your REST operator, for example, must be in an operator group that grants privileges, otherwise it will receive nothing but 404s.</p>
-                  <p>Added in 8.50.</p>
+                    <em>membership</em>. A cardholder can be a member of many different operator groups, and operator groups usually have more than one member, but a cardholder can only have one membership to a given operator group at a time. This is because an operator group membership, unlike an access group membership, does not have start and end dates.</p>
+                  <p>Presence in an operator group affects software access. Your REST operator, for example, must be in an operator group that grants privileges otherwise it will receive nothing but 404s.</p>
+                  <p>Added to the API in 8.50.</p>
                 </section>
                 <section class="json-schema-properties">
                   <dl>
@@ -10544,7 +11146,8 @@
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>DELETE this URL to remove this operator group membership.</p>
+                      <p>DELETE this URL or use it in the &#39;operatorGroups&#39; block of a
+                        <a href="#operation--api-cardholders--id--patch">cardholder PATCH</a> to remove this operator group membership.</p>
                       <p>DELETE is the only verb you can use on this URL. GET will always return a 404.</p>
                     </dd>
                     <dt data-property-name="operatorGroup" class="has-description">
@@ -10554,7 +11157,7 @@
                       <span class="json-property-read-only"></span>
                     </dt>
                     <dd>
-                      <p>An object containing a link to this operator group&#39;s detail page and its name. It is read-only because you cannot change a group membership&#39;s group.</p>
+                      <p>An object containing a link to this operator group&#39;s detail page and its name. It is marked read-only because you do not send it to the server when managing a cardholder&#39;s operator groups: you cannot change a group membership&#39;s group.</p>
                       <p>The link will be absent if your operator does not have the privilege to view the operator group (&#39;View operators&#39; or &#39;Edit operators&#39;, for example).</p>
                     </dd>
                   </dl>
@@ -10798,6 +11401,7 @@
                       <span class="json-property-type">string</span>
                       <span class="json-property-format">(url)</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Required. This identifies the cardholder competency you are updating.</p>
@@ -13102,6 +13706,89 @@
               </div>
             </div>
           </div>
+          <div id="definition-Competency-PATCH-and-POST-example" class="definition panel" data-traverse-target="definition-Competency-PATCH-and-POST-example">
+            <h2 class="panel-title">
+              <a name="/definitions/Competency PATCH and POST example"></a>Competency PATCH and POST example: object
+              <!-- <span class="json-property-type"><span class="json-property-type">object</span>
+              <span class="json-property-range" title="Value limits"></span>
+              
+              
+              </span> -->
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="json-schema-description">
+                  <p>This is an example of a PATCH you could use to update a competency, and a POST you could use to create one.</p>
+                  <p>No fields are mandatory.</p>
+                </section>
+                <section class="json-schema-properties">
+                  <dl>
+                    <dt data-property-name="name" class="has-description">
+                      <span class="json-property-name">name:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The new item&#39;s name. If you supply a name and another item of the same type already exists with that name, the call will fail. If you leave it blank in a POST, Command Centre will pick value for you.</p>
+                    </dd>
+                    <dt data-property-name="shortName" class="has-description">
+                      <span class="json-property-name">shortName:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-range" title="String length limits"> (up to 16 chars) </span>
+                    </dt>
+                    <dd>
+                      <p>If you supply a string that is too long, Command Centre will truncate it.</p>
+                    </dd>
+                    <dt data-property-name="description" class="has-description">
+                      <span class="json-property-name">description:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The new item&#39;s description.</p>
+                    </dd>
+                    <dt data-property-name="division" class="has-description">
+                      <span class="json-property-name">division:</span>
+                      <span class="json-property-type">object</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The division to contain this competency.</p>
+                    </dd>
+                    <dt data-property-name="notes" class="has-description">
+                      <span class="json-property-name">notes:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>A string, able to me much longer than <code>description</code>, suitable for holding notes about the item.</p>
+                    </dd>
+                  </dl>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;New competency&quot;</span>,
+  <span class="hljs-attr">&quot;shortName&quot;</span>: <span class="hljs-string">&quot;C4&quot;</span>,
+  <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Translated automatically.&quot;</span>,
+  <span class="hljs-attr">&quot;division&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
+  },
+  <span class="hljs-attr">&quot;notes&quot;</span>: <span class="hljs-string">&quot;A very long string.&quot;</span>
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+          </div>
           <div id="definition-Competency-search" class="definition panel" data-traverse-target="definition-Competency-search">
             <h2 class="panel-title">
               <a name="/definitions/Competency search"></a>Competency search:
@@ -14269,7 +14956,7 @@
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>This is the access that your operator has to cardholders&#39; values of this PDF, including if the operator is a member of an operator group that overrides it. You will only get this field if you ask for it with the <code>fields</code> parameter.</p>
+                      <p>This is the access that your operator has to cardholders&#39; values of this PDF including the permissions granted by this cardholder&#39;s operator groups. You will only get this field if you ask for it with the <code>fields</code> parameter.</p>
                       <p>New in 8.80.</p>
                     </dd>
                     <dt data-property-name="sortPriority" class="has-description">
@@ -14728,6 +15415,7 @@
                       <span class="json-property-name">cardholder:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>The href of the cardholder whose events or item this redaction should affect.</p>
@@ -14741,6 +15429,7 @@
                         <span class="json-property-enum-item">cardholder</span>
                       </span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Whether this redaction is for events or cardholder information.</p>
@@ -15129,7 +15818,7 @@
                     <dd>
                       <p>Every visit must have a reception. It represents the location at which your visitors will first arrive. Having one attached to a visit allows a kiosk at that location to hide visits for other receptions, revealing only those meant to start there.</p>
                       <p>Your choice of reception also determines the rules with which the visit must comply, because those rules come from the visitor management configuration on the reception&#39;s division.</p>
-                      <p>Since every visit must have a reception, every POST must have one. Once you have a visit in the system you can change its reception, but be aware that changing receptions might change the visit&#39;s division, which also might change the rules to which the visit must conform, and if any validation fails--and there is a lot of it--the PATCH will fail.</p>
+                      <p>Since every visit must have a reception, every POST that creates a visit must have one. Once you have a visit in the system you can change its reception, but be aware that changing receptions might change the visit&#39;s division, which also might change the rules to which the visit must conform, and if any validation fails--and there is a lot of it--the PATCH will fail.</p>
                       <p>The reception&#39;s name comes from the server in a GET, but you need not send it when creating or modifying a visit. Command Centre only needs an href from you.</p>
                       <p>Note that you must send the reception like it appears in the example, as an href inside a block called <code>reception</code>. This will not work:</p>
                       <p><code>&quot;reception&quot;: &quot;https://localhost:8904/api/receptions/123&quot;</code></p>
@@ -15207,16 +15896,88 @@
                     </dd>
                     <dt data-property-name="visitors" class="has-description">
                       <span class="json-property-name">visitors:</span>
-                      <span class="json-property-type">array</span>
+                      <span class="json-property-type">object[]</span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>When the server sends this array to you, it contains two hrefs for each cardholder due to arrive in this visit. The first, outside the <code>cardholder</code> block, is reserved for a future feature. The one inside the <code>cardholder</code> block is simply an href to the cardholder item. You can use either href when removing visitors from a visit with a PATCH.</p>
+                      <p>When the server sends this array to you, it contains two hrefs for each cardholder due to arrive in this visit. The first, outside the <code>cardholder</code> block, is the URL you
+                        <a href="#operation--api-visits--id--visitors--visitorId--patch">PATCH</a> to change their state (new in 8.90). The one inside the <code>cardholder</code> block is simply an href to the cardholder item. You can use either href when removing visitors from a visit with a PATCH.</p>
+                      <p>The <code>status</code> block contains two fields. <code>value</code> is a human-readable description of their state in by the server&#39;s language. <code>type</code> comes from a fixed enumeration.</p>
                       <p>A visit with no visitors on it will not appear in Gallagher&#39;s visitor management application. Why clutter the screen if you&#39;re not expecting anybody, after all.</p>
-                      <p>When you send a visitor block to the server in a POST to create a visit, just send an array of hrefs to cardholders. 8.50 does not accept the same kind of visitor hrefs here that it sends, so this is the other reason you cannot copy a visit by POSTing back the JSON from a GET.</p>
+                      <p>When you send a visitor block to the server in a POST to create a visit, just send an array of hrefs to cardholders. 8.50 does not accept the same kind of visitor hrefs here that it sends, so this is the other reason you cannot copy a visit by POSTing back the JSON from a GET. Don&#39;t send a <code>status</code> block: the server will ignore it and set all visitors to &#39;expected&#39;.</p>
                       <p>When you send a visitor block in a PATCH to edit an existing visit, the server expects it to contain one or two arrays called <code>add</code> and <code>remove</code>. The <code>add</code> array should contain cardholder hrefs, exactly as you would send when creating a visit. The <code>remove</code> array should contain either of the hrefs you received for the cardholder in the GET. The PATCH example shows two hrefs removing the same cardholder.</p>
                       <p>Your operator must have a privilege such as &#39;Modify Access Control&#39; that allows both viewing the cardholders and changing their access groups memberships, otherwise you will be told &#39;Access denied when writing to one or more fields&#39;.</p>
                     </dd>
+                    <dt class="json-inner-schema">
+                      <section class="json-schema-array-items">
+                        <span class="json-property-type">object</span>
+                        <span class="json-property-range" title="Value limits"></span>
+                        <div class="json-inner-schema">
+                          <section class="json-schema-properties">
+                            <dl>
+                              <dt data-property-name="cardholder" class="has-description">
+                                <span class="json-property-name">cardholder:</span>
+                                <span class="json-property-type">object</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>A block containing the name and cardholder href of the visitor.</p>
+                              </dd>
+                              <dt data-property-name="href" class="has-description">
+                                <span class="json-property-name">href:</span>
+                                <span class="json-property-type">string</span>
+                                <span class="json-property-format">(url)</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>An href unique to this cardholder on this visit. You can PATCH it to change the visitor&#39;s state.</p>
+                                <p>New to 8.90.</p>
+                              </dd>
+                              <dt data-property-name="status" class="has-description">
+                                <span class="json-property-name">status:</span>
+                                <span class="json-property-type">object</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>The cardholder&#39;s status on this visit, in human-readable and machine-readable forms.</p>
+                                <p>Also new to 8.90.</p>
+                              </dd>
+                              <dt class="json-inner-schema">
+                                <section class="json-schema-properties">
+                                  <dl>
+                                    <dt data-property-name="value" class="has-description">
+                                      <span class="json-property-name">value:</span>
+                                      <span class="json-property-type">string</span>
+                                      <span class="json-property-range" title="Value limits"></span>
+                                    </dt>
+                                    <dd>
+                                      <p>A human-readable version of the visitor&#39;s status, varying with the version of Command Centre and the server&#39;s locale.</p>
+                                    </dd>
+                                    <dt data-property-name="type" class="has-description">
+                                      <span class="json-property-name">type:</span>
+                                      <span class="json-property-type">string</span>
+                                      <span class="json-property-enum" title="Possible values">
+                                        <span class="json-property-enum-item">expected</span>,
+                                        <span class="json-property-enum-item">signingIn</span>,
+                                        <span class="json-property-enum-item">signedIn</span>,
+                                        <span class="json-property-enum-item">onSite</span>,
+                                        <span class="json-property-enum-item">expectedBack</span>,
+                                        <span class="json-property-enum-item">departed</span>,
+                                        <span class="json-property-enum-item">cancelled</span>
+                                      </span>
+                                      <span class="json-property-range" title="Value limits"></span>
+                                    </dt>
+                                    <dd>
+                                      <p>The visitor&#39;s current state taken from a fixed list of strings. New visitors have a starting state of &#39;expected&#39;.</p>
+                                    </dd>
+                                  </dl>
+                                </section>
+                              </dt>
+                            </dl>
+                          </section>
+                        </div>
+                      </section>
+                    </dt>
                   </dl>
                 </section>
               </div>
@@ -15263,15 +16024,25 @@
   ],
   <span class="hljs-attr">&quot;visitors&quot;</span>: [
     {
+      <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/visits/941/visitors/940&quot;</span>,
       <span class="hljs-attr">&quot;cardholder&quot;</span>: {
         <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;Red Adair&quot;</span>,
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/940&quot;</span>
+      },
+      <span class="hljs-attr">&quot;status&quot;</span>: {
+        <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;Expected Back&quot;</span>,
+        <span class="hljs-attr">&quot;type&quot;</span>: <span class="hljs-string">&quot;expectedBack&quot;</span>
       }
     },
     {
+      <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/visits/941/visitors/9040&quot;</span>,
       <span class="hljs-attr">&quot;cardholder&quot;</span>: {
         <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;James Page&quot;</span>,
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/cardholders/9040&quot;</span>
+      },
+      <span class="hljs-attr">&quot;status&quot;</span>: {
+        <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;On-Site&quot;</span>,
+        <span class="hljs-attr">&quot;type&quot;</span>: <span class="hljs-string">&quot;onSite&quot;</span>
       }
     }
   ]
@@ -15304,6 +16075,7 @@
                       <span class="json-property-name">name:</span>
                       <span class="json-property-type">string</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>You can name a visit however you like. Gallagher&#39;s in-house applications name them after their hosts.</p>
@@ -15321,11 +16093,12 @@
                       <span class="json-property-name">reception:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Every visit must have a reception. It represents the location at which your visitors will first arrive. Having one attached to a visit allows a kiosk at that location to hide visits for other receptions, revealing only those meant to start there.</p>
                       <p>Your choice of reception also determines the rules with which the visit must comply, because those rules come from the visitor management configuration on the reception&#39;s division.</p>
-                      <p>Since every visit must have a reception, every POST must have one. Once you have a visit in the system you can change its reception, but be aware that changing receptions might change the visit&#39;s division, which also might change the rules to which the visit must conform, and if any validation fails--and there is a lot of it--the PATCH will fail.</p>
+                      <p>Since every visit must have a reception, every POST that creates a visit must have one. Once you have a visit in the system you can change its reception, but be aware that changing receptions might change the visit&#39;s division, which also might change the rules to which the visit must conform, and if any validation fails--and there is a lot of it--the PATCH will fail.</p>
                       <p>The reception&#39;s name comes from the server in a GET, but you need not send it when creating or modifying a visit. Command Centre only needs an href from you.</p>
                       <p>Note that you must send the reception like it appears in the example, as an href inside a block called <code>reception</code>. This will not work:</p>
                       <p><code>&quot;reception&quot;: &quot;https://localhost:8904/api/receptions/123&quot;</code></p>
@@ -15334,6 +16107,7 @@
                       <span class="json-property-name">visitorType:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Every visit must also have a visitor type. It provides an access group for your visitors so that they can have personal data (remember that a cardholder must be in an access group before he or she can have a PDF), and it is an index into the visitor management configuration that governs things like the host (the cardholder who is responsible for your visitors) and the access groups that the server will give your visitors when they sign in.</p>
@@ -15350,6 +16124,7 @@
                       <span class="json-property-name">host:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>A host is a cardholder, and every visit has one. A visit&#39;s host is the person who (optionally) receives an email or SMS notification when visitors start signing in, and is responsible for them until they sign out again.</p>
@@ -15361,6 +16136,7 @@
                       <span class="json-property-type">string</span>
                       <span class="json-property-format">(date-time)</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Every visit has a validity period, defined by start and end times called <code>from</code> and <code>until</code>.</p>
@@ -15373,6 +16149,7 @@
                       <span class="json-property-type">string</span>
                       <span class="json-property-format">(date-time)</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Every visit has a validity period, defined by start and end times called <code>from</code> and <code>until</code>.</p>
@@ -15403,16 +16180,88 @@
                     </dd>
                     <dt data-property-name="visitors" class="has-description">
                       <span class="json-property-name">visitors:</span>
-                      <span class="json-property-type">array</span>
+                      <span class="json-property-type">object[]</span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>When the server sends this array to you, it contains two hrefs for each cardholder due to arrive in this visit. The first, outside the <code>cardholder</code> block, is reserved for a future feature. The one inside the <code>cardholder</code> block is simply an href to the cardholder item. You can use either href when removing visitors from a visit with a PATCH.</p>
+                      <p>When the server sends this array to you, it contains two hrefs for each cardholder due to arrive in this visit. The first, outside the <code>cardholder</code> block, is the URL you
+                        <a href="#operation--api-visits--id--visitors--visitorId--patch">PATCH</a> to change their state (new in 8.90). The one inside the <code>cardholder</code> block is simply an href to the cardholder item. You can use either href when removing visitors from a visit with a PATCH.</p>
+                      <p>The <code>status</code> block contains two fields. <code>value</code> is a human-readable description of their state in by the server&#39;s language. <code>type</code> comes from a fixed enumeration.</p>
                       <p>A visit with no visitors on it will not appear in Gallagher&#39;s visitor management application. Why clutter the screen if you&#39;re not expecting anybody, after all.</p>
-                      <p>When you send a visitor block to the server in a POST to create a visit, just send an array of hrefs to cardholders. 8.50 does not accept the same kind of visitor hrefs here that it sends, so this is the other reason you cannot copy a visit by POSTing back the JSON from a GET.</p>
+                      <p>When you send a visitor block to the server in a POST to create a visit, just send an array of hrefs to cardholders. 8.50 does not accept the same kind of visitor hrefs here that it sends, so this is the other reason you cannot copy a visit by POSTing back the JSON from a GET. Don&#39;t send a <code>status</code> block: the server will ignore it and set all visitors to &#39;expected&#39;.</p>
                       <p>When you send a visitor block in a PATCH to edit an existing visit, the server expects it to contain one or two arrays called <code>add</code> and <code>remove</code>. The <code>add</code> array should contain cardholder hrefs, exactly as you would send when creating a visit. The <code>remove</code> array should contain either of the hrefs you received for the cardholder in the GET. The PATCH example shows two hrefs removing the same cardholder.</p>
                       <p>Your operator must have a privilege such as &#39;Modify Access Control&#39; that allows both viewing the cardholders and changing their access groups memberships, otherwise you will be told &#39;Access denied when writing to one or more fields&#39;.</p>
                     </dd>
+                    <dt class="json-inner-schema">
+                      <section class="json-schema-array-items">
+                        <span class="json-property-type">object</span>
+                        <span class="json-property-range" title="Value limits"></span>
+                        <div class="json-inner-schema">
+                          <section class="json-schema-properties">
+                            <dl>
+                              <dt data-property-name="cardholder" class="has-description">
+                                <span class="json-property-name">cardholder:</span>
+                                <span class="json-property-type">object</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>A block containing the name and cardholder href of the visitor.</p>
+                              </dd>
+                              <dt data-property-name="href" class="has-description">
+                                <span class="json-property-name">href:</span>
+                                <span class="json-property-type">string</span>
+                                <span class="json-property-format">(url)</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>An href unique to this cardholder on this visit. You can PATCH it to change the visitor&#39;s state.</p>
+                                <p>New to 8.90.</p>
+                              </dd>
+                              <dt data-property-name="status" class="has-description">
+                                <span class="json-property-name">status:</span>
+                                <span class="json-property-type">object</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>The cardholder&#39;s status on this visit, in human-readable and machine-readable forms.</p>
+                                <p>Also new to 8.90.</p>
+                              </dd>
+                              <dt class="json-inner-schema">
+                                <section class="json-schema-properties">
+                                  <dl>
+                                    <dt data-property-name="value" class="has-description">
+                                      <span class="json-property-name">value:</span>
+                                      <span class="json-property-type">string</span>
+                                      <span class="json-property-range" title="Value limits"></span>
+                                    </dt>
+                                    <dd>
+                                      <p>A human-readable version of the visitor&#39;s status, varying with the version of Command Centre and the server&#39;s locale.</p>
+                                    </dd>
+                                    <dt data-property-name="type" class="has-description">
+                                      <span class="json-property-name">type:</span>
+                                      <span class="json-property-type">string</span>
+                                      <span class="json-property-enum" title="Possible values">
+                                        <span class="json-property-enum-item">expected</span>,
+                                        <span class="json-property-enum-item">signingIn</span>,
+                                        <span class="json-property-enum-item">signedIn</span>,
+                                        <span class="json-property-enum-item">onSite</span>,
+                                        <span class="json-property-enum-item">expectedBack</span>,
+                                        <span class="json-property-enum-item">departed</span>,
+                                        <span class="json-property-enum-item">cancelled</span>
+                                      </span>
+                                      <span class="json-property-range" title="Value limits"></span>
+                                    </dt>
+                                    <dd>
+                                      <p>The visitor&#39;s current state taken from a fixed list of strings. New visitors have a starting state of &#39;expected&#39;.</p>
+                                    </dd>
+                                  </dl>
+                                </section>
+                              </dt>
+                            </dl>
+                          </section>
+                        </div>
+                      </section>
+                    </dt>
                   </dl>
                 </section>
               </div>
@@ -15504,7 +16353,7 @@
                     <dd>
                       <p>Every visit must have a reception. It represents the location at which your visitors will first arrive. Having one attached to a visit allows a kiosk at that location to hide visits for other receptions, revealing only those meant to start there.</p>
                       <p>Your choice of reception also determines the rules with which the visit must comply, because those rules come from the visitor management configuration on the reception&#39;s division.</p>
-                      <p>Since every visit must have a reception, every POST must have one. Once you have a visit in the system you can change its reception, but be aware that changing receptions might change the visit&#39;s division, which also might change the rules to which the visit must conform, and if any validation fails--and there is a lot of it--the PATCH will fail.</p>
+                      <p>Since every visit must have a reception, every POST that creates a visit must have one. Once you have a visit in the system you can change its reception, but be aware that changing receptions might change the visit&#39;s division, which also might change the rules to which the visit must conform, and if any validation fails--and there is a lot of it--the PATCH will fail.</p>
                       <p>The reception&#39;s name comes from the server in a GET, but you need not send it when creating or modifying a visit. Command Centre only needs an href from you.</p>
                       <p>Note that you must send the reception like it appears in the example, as an href inside a block called <code>reception</code>. This will not work:</p>
                       <p><code>&quot;reception&quot;: &quot;https://localhost:8904/api/receptions/123&quot;</code></p>
@@ -15582,16 +16431,88 @@
                     </dd>
                     <dt data-property-name="visitors" class="has-description">
                       <span class="json-property-name">visitors:</span>
-                      <span class="json-property-type">array</span>
+                      <span class="json-property-type">object[]</span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>When the server sends this array to you, it contains two hrefs for each cardholder due to arrive in this visit. The first, outside the <code>cardholder</code> block, is reserved for a future feature. The one inside the <code>cardholder</code> block is simply an href to the cardholder item. You can use either href when removing visitors from a visit with a PATCH.</p>
+                      <p>When the server sends this array to you, it contains two hrefs for each cardholder due to arrive in this visit. The first, outside the <code>cardholder</code> block, is the URL you
+                        <a href="#operation--api-visits--id--visitors--visitorId--patch">PATCH</a> to change their state (new in 8.90). The one inside the <code>cardholder</code> block is simply an href to the cardholder item. You can use either href when removing visitors from a visit with a PATCH.</p>
+                      <p>The <code>status</code> block contains two fields. <code>value</code> is a human-readable description of their state in by the server&#39;s language. <code>type</code> comes from a fixed enumeration.</p>
                       <p>A visit with no visitors on it will not appear in Gallagher&#39;s visitor management application. Why clutter the screen if you&#39;re not expecting anybody, after all.</p>
-                      <p>When you send a visitor block to the server in a POST to create a visit, just send an array of hrefs to cardholders. 8.50 does not accept the same kind of visitor hrefs here that it sends, so this is the other reason you cannot copy a visit by POSTing back the JSON from a GET.</p>
+                      <p>When you send a visitor block to the server in a POST to create a visit, just send an array of hrefs to cardholders. 8.50 does not accept the same kind of visitor hrefs here that it sends, so this is the other reason you cannot copy a visit by POSTing back the JSON from a GET. Don&#39;t send a <code>status</code> block: the server will ignore it and set all visitors to &#39;expected&#39;.</p>
                       <p>When you send a visitor block in a PATCH to edit an existing visit, the server expects it to contain one or two arrays called <code>add</code> and <code>remove</code>. The <code>add</code> array should contain cardholder hrefs, exactly as you would send when creating a visit. The <code>remove</code> array should contain either of the hrefs you received for the cardholder in the GET. The PATCH example shows two hrefs removing the same cardholder.</p>
                       <p>Your operator must have a privilege such as &#39;Modify Access Control&#39; that allows both viewing the cardholders and changing their access groups memberships, otherwise you will be told &#39;Access denied when writing to one or more fields&#39;.</p>
                     </dd>
+                    <dt class="json-inner-schema">
+                      <section class="json-schema-array-items">
+                        <span class="json-property-type">object</span>
+                        <span class="json-property-range" title="Value limits"></span>
+                        <div class="json-inner-schema">
+                          <section class="json-schema-properties">
+                            <dl>
+                              <dt data-property-name="cardholder" class="has-description">
+                                <span class="json-property-name">cardholder:</span>
+                                <span class="json-property-type">object</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>A block containing the name and cardholder href of the visitor.</p>
+                              </dd>
+                              <dt data-property-name="href" class="has-description">
+                                <span class="json-property-name">href:</span>
+                                <span class="json-property-type">string</span>
+                                <span class="json-property-format">(url)</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>An href unique to this cardholder on this visit. You can PATCH it to change the visitor&#39;s state.</p>
+                                <p>New to 8.90.</p>
+                              </dd>
+                              <dt data-property-name="status" class="has-description">
+                                <span class="json-property-name">status:</span>
+                                <span class="json-property-type">object</span>
+                                <span class="json-property-range" title="Value limits"></span>
+                              </dt>
+                              <dd>
+                                <p>The cardholder&#39;s status on this visit, in human-readable and machine-readable forms.</p>
+                                <p>Also new to 8.90.</p>
+                              </dd>
+                              <dt class="json-inner-schema">
+                                <section class="json-schema-properties">
+                                  <dl>
+                                    <dt data-property-name="value" class="has-description">
+                                      <span class="json-property-name">value:</span>
+                                      <span class="json-property-type">string</span>
+                                      <span class="json-property-range" title="Value limits"></span>
+                                    </dt>
+                                    <dd>
+                                      <p>A human-readable version of the visitor&#39;s status, varying with the version of Command Centre and the server&#39;s locale.</p>
+                                    </dd>
+                                    <dt data-property-name="type" class="has-description">
+                                      <span class="json-property-name">type:</span>
+                                      <span class="json-property-type">string</span>
+                                      <span class="json-property-enum" title="Possible values">
+                                        <span class="json-property-enum-item">expected</span>,
+                                        <span class="json-property-enum-item">signingIn</span>,
+                                        <span class="json-property-enum-item">signedIn</span>,
+                                        <span class="json-property-enum-item">onSite</span>,
+                                        <span class="json-property-enum-item">expectedBack</span>,
+                                        <span class="json-property-enum-item">departed</span>,
+                                        <span class="json-property-enum-item">cancelled</span>
+                                      </span>
+                                      <span class="json-property-range" title="Value limits"></span>
+                                    </dt>
+                                    <dd>
+                                      <p>The visitor&#39;s current state taken from a fixed list of strings. New visitors have a starting state of &#39;expected&#39;.</p>
+                                    </dd>
+                                  </dl>
+                                </section>
+                              </dt>
+                            </dl>
+                          </section>
+                        </div>
+                      </section>
+                    </dt>
                   </dl>
                 </section>
               </div>
@@ -15653,6 +16574,75 @@
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/visits/941/visitors/937&quot;</span>
       }
     ]
+  }
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+          </div>
+          <div id="definition-Visitor-PATCH-example" class="definition panel" data-traverse-target="definition-Visitor-PATCH-example">
+            <h2 class="panel-title">
+              <a name="/definitions/Visitor PATCH example"></a>Visitor PATCH example:
+              <!-- <span class="json-property-type"><span class="json-property-type">object</span>
+              <span class="json-property-range" title="Value limits"></span>
+              
+              
+              </span> -->
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="json-schema-description">
+                  <p>This is a sample PATCH body that marks a visitor as signing in.</p>
+                </section>
+                <section class="json-schema-properties">
+                  <dl>
+                    <dt data-property-name="status" class="has-description">
+                      <span class="json-property-name">status:</span>
+                      <span class="json-property-type">object</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>This is the same status that you see in a
+                        <a href="#definition-Visit">visit GET</a> for each visitor except that you only need to send the <code>value</code> field.</p>
+                    </dd>
+                    <dt class="json-inner-schema">
+                      <section class="json-schema-properties">
+                        <dl>
+                          <dt data-property-name="value" class="has-description">
+                            <span class="json-property-name">value:</span>
+                            <span class="json-property-type">string</span>
+                            <span class="json-property-enum" title="Possible values">
+                              <span class="json-property-enum-item">expected</span>,
+                              <span class="json-property-enum-item">signingIn</span>,
+                              <span class="json-property-enum-item">signedIn</span>,
+                              <span class="json-property-enum-item">onSite</span>,
+                              <span class="json-property-enum-item">expectedBack</span>,
+                              <span class="json-property-enum-item">departed</span>,
+                              <span class="json-property-enum-item">cancelled</span>
+                            </span>
+                            <span class="json-property-range" title="Value limits"></span>
+                          </dt>
+                          <dd>
+                            <p>An enum describing the state in which you want your visitor to be.</p>
+                          </dd>
+                        </dl>
+                      </section>
+                    </dt>
+                  </dl>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;status&quot;</span>: {
+    <span class="hljs-attr">&quot;value&quot;</span>: <span class="hljs-string">&quot;signingIn&quot;</span>
   }
 }
 </code></pre> </body>

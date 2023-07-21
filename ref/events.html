@@ -56,10 +56,19 @@
             <a href="#tag-Divisions">Divisions</a>
             <ul>
               <li>
+                <a href="#operation--api-divisions-post"> Create a division </a>
+              </li>
+              <li>
                 <a href="#operation--api-divisions--operation--get"> List divisions </a>
               </li>
               <li>
                 <a href="#operation--api-divisions--id--get"> Get details of a division </a>
+              </li>
+              <li>
+                <a href="#operation--api-divisions--id--patch"> Update a division </a>
+              </li>
+              <li>
+                <a href="#operation--api-divisions--id--delete"> Remove a division </a>
               </li>
             </ul>
           </section>
@@ -117,6 +126,7 @@
           <a href="#definition-Event-groups"> Event groups </a>
           <a href="#definition-Divisions"> Divisions </a>
           <a href="#definition-Division"> Division </a>
+          <a href="#definition-Division-PATCH-and-POST-example"> Division PATCH and POST example </a>
           <a href="#definition-Item-search"> Item search </a>
           <a href="#definition-Item-summary"> Item summary </a>
           <a href="#definition-Item-detail"> Item detail </a>
@@ -152,14 +162,24 @@
                 <p>Helper methods allow you to look up Command Centre&#39;s internal identifiers for cardholders, divisions, and other items, so that you can use those identifiers in search filters.</p>
                 <h3 id="licensing">Licensing</h3>
                 <p>All of the GETs in this document and the POSTs that manage alarms require the RESTEvents licence. The POST to create a new event requires RESTCreateEvents.</p>
+                <p>The server will return a 403 if you attempt an operation for which the server is not licensed.</p>
                 <h3 id="versions">Versions</h3>
                 <p>The body of this document clearly indicates when recent features arrived in the API so that readers with older versions of Command Centre know not to expect them.</p>
                 <h4 id="alarms-events-and-items-api-changes-on-the-roadmap">Alarms, events, and items API changes on the roadmap</h4>
+                <h4 id="alarms-and-events-api-changes-in-900">Alarms and events API changes in 9.00</h4>
                 <ul>
-                  <li>BREAKING CHANGE: a future version will require that the operator has the &#39;Create Events and Alarms&#39; privilege in the division of the source item, if your request specifies a source item. Current versions only require that the operator has that privilege on at least one division.</li>
+                  <li>
+                    <p>You can create and delete divisions, and modify some basic fields.</p>
+                  </li>
+                  <li>
+                    <p>A new <code>location</code> block on events greatly simplifies the monitoring of cardholder movements.</p>
+                  </li>
                 </ul>
                 <h4 id="alarms-and-events-api-changes-in-890">Alarms and events API changes in 8.90</h4>
                 <ul>
+                  <li>
+                    <p>BREAKING CHANGE: the operator must have the &#39;Create Events and Alarms&#39; privilege in the division of the source item, if your request specifies a source item. Current versions only require that the operator has that privilege on at least one division.</p>
+                  </li>
                   <li>
                     <p>To improve the symmetry between events and alarms, they now carry a field <code>eventType</code> containing the ID and name of their type. The <code>type</code> field, which has different contents for alarms and events, is now obsolete (but still supported).</p>
                   </li>
@@ -272,6 +292,9 @@
                   <h5>Schemes:
                     <span>https</span>
                   </h5>
+                  <h5>Version:
+                    <span>1.0.0</span>
+                  </h5>
                 </section>
               </div>
             </div>
@@ -289,13 +312,14 @@
                   <p>Clients authenticate by including a pre-shared API key in the <code>Authorization</code> header of each request. Command Centre generates an API key when you create an endpoint for your clients to connect to. Search the Configuration Client online help for &#39;REST API&#39; for how do do that.</p>
                   <p>The API key will be in the format <code>XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX</code> and should be in the header following an authorisation method of <code>GGL-API-KEY</code> and a space. Both should be in upper case. For example:</p>
                   <p><code>Authorization: GGL-API-KEY C774-B01F-D695-AA4B-215F-A158-AC22-ADEB</code></p>
-                  <p>Early versions of Command Centre allowed you to omit the &#39;GGL-API-KEY&#39;. Later versions will reject you with a 401 if you do that.</p>
+                  <p>Early versions of Command Centre allowed you to omit the &#39;GGL-API-KEY&#39;. Later versions of CC and all versions of the API gateway will reject you with a 401 if you do that.</p>
                   <p>Depending on Command Centre&#39;s site configuration, its REST API may also require a client certificate with each request. In versions up to and including 8.40 this was controlled by a flag labelled &#39;Do not require pinned client certficates&#39; on the &#39;Web Services&#39; tab of the server properties. In 8.50 that flag&#39;s label changed to &#39;Enable REST Clients with no client certificate&#39;, and its behaviour changed slightly when turned on.</p>
                   <p>If off, for all versions of CC, an incoming request&#39;s certificate has to match the thumbprint on its API key&#39;s REST Client item, and REST Client items with a blank thumbprint field do not work at all. This is how it ships, and it is the recommended way of running a production server.</p>
                   <p>If &#39;Do not require pinned client certificates&#39; was turned on in versions up to and including 8.40, the server did not check any client certificates. If that flag is turned on in 8.50, now relabelled &#39;Enable REST Clients with no client certificate&#39;, it still does not check the client certificate if the thumbprint field of the matching REST Client item is blank, but if the Client item has a thumbprint, the server will reject connections with the wrong certificate.</p>
                   <p>See the Configuration Client help for instructions on where to enter REST Client thumbprints.</p>
                   <p>Also note that if IP filtering is enabled on the REST Client item in Command Centre, the API will only accept connections from the IP address ranges configurated into that client item.</p>
                   <p>If a connection attempt fails, the server will return a 401 and raise an event containing its reason for refusing the request. If that happens too often, the server will stop reporting each offence and will instead create a summary alarm at a much lower rate. The details of the alarm tell you how many failed attempts there have been since the start of the flood. The server will stay in this mode of reduced reporting until several minutes pass without a failed connection attempt.</p>
+                  <p>The current failure limit is ten errors inside one minute. After that you will receive one &quot;a large volume of requests has been denied&quot; alarm every minute while the failures continue until five minutes passes without a failure.</p>
                   <p>The most common queries we receive from our integrators relate to their certificate handling. If your client&#39;s HTTP client library complains about certificates the first thing to check is Command Centre&#39;s alarm list. If there are &#39;invalid client certificate&#39; alarms there, your client is not sending the certificate CC is expecting. If there are no alarms then the client is most likely rejecting the server&#39;s certificate.</p>
                 </section>
                 <section class="swagger-security-definition-properties">
@@ -346,7 +370,10 @@
                     <td valign=top>
                       <a href=rest.html>Status and overrides</a>
                     </td>
-                    <td> These functions let you monitor and override several more Command Centre item types. For example you can use them to watch the status of inputs, open doors, run macros, and modify schedules. </td>
+                    <td> These functions let you monitor and override several Command Centre item types, including access zones, alarm zones, doors, fence zones, inputs, outputs, macros, elevator groups, interlock groups, and schedules.
+                      <p> Despite its name this section does not cover
+                        <a href="events.html#status-subscriptions">mass-monitoring item status</a>. </td>
+                    </p>
                   </tr>
                   <tr>
                     <td valign=top>
@@ -648,16 +675,19 @@
       <span class="hljs-attr">&quot;comment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/comment&quot;</span>
       },
+      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      },
       <span class="hljs-attr">&quot;acknowledgeWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
       },
-      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
-        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      <span class="hljs-attr">&quot;process&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
       <span class="hljs-attr">&quot;processWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
-      <span class="hljs-attr">&quot;process&quot;</span>: {
+      <span class="hljs-attr">&quot;forceProcess&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       }
     }
@@ -699,7 +729,7 @@
             <div class="doc-row">
               <div class="doc-copy">
                 <section class="swagger-operation-description">
-                  <p>Long poll this link for live updates to alarms. It will return the alarms that occurred or changed since the previous call, no matter how long ago that was. If there are no changes to alarms before a timeout passes (about 30 seconds) the server will return a normal response, except that the <code>updates</code> array will be empty.</p>
+                  <p>Long poll this link for live updates to alarms. If alarms occurred or changed since the previous call, no matter how long ago that was, it will return them immediately. If there are no updates pending, it will wait until one arrives. If none arrive before a timeout passes (about 30 seconds) the <code>updates</code> array in its response will be empty.</p>
                   <p>Whether or not the response contained updates the client should follow the <code>next</code> link to wait for the next updates. If your server receives a lot of alarm updates, wait some time between calls to reduce its load. You will not miss any updates: each response contains everything that happened since the previous call.</p>
                   <p>Command Centre does not tell you which alarms were added, removed, or modified. It is up to you to match the incoming alarms against your own internal alarm list and determine the differences.</p>
                   <p>Do not code this URL into your application. Take it from <code>alarms.updates.href</code> in the results of <code>GET /api</code>, or from <code>updates</code> in the results of <code>GET /api/alarms</code>, or from <code>next</code> in the results of this call. Do not attempt to interpret or set the <code>id</code> query parameter in the URL, as it tracks your progress through the alarm history.</p>
@@ -824,16 +854,19 @@
       <span class="hljs-attr">&quot;comment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/comment&quot;</span>
       },
+      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      },
       <span class="hljs-attr">&quot;acknowledgeWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
       },
-      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
-        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      <span class="hljs-attr">&quot;process&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
       <span class="hljs-attr">&quot;processWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
-      <span class="hljs-attr">&quot;process&quot;</span>: {
+      <span class="hljs-attr">&quot;forceProcess&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       }
     }
@@ -1005,16 +1038,19 @@
   <span class="hljs-attr">&quot;comment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/comment&quot;</span>
   },
+  <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+  },
   <span class="hljs-attr">&quot;acknowledgeWithComment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
   },
-  <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
-    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+  <span class="hljs-attr">&quot;process&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
   <span class="hljs-attr">&quot;processWithComment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
-  <span class="hljs-attr">&quot;process&quot;</span>: {
+  <span class="hljs-attr">&quot;forceProcess&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
   <span class="hljs-attr">&quot;details&quot;</span>: <span class="hljs-string">&quot;Forced door&quot;</span>,
@@ -1371,7 +1407,7 @@
             <div class="doc-row">
               <div class="doc-copy">
                 <section class="swagger-operation-description">
-                  <p>Follow the <code>processWithComment</code> or the <code>process</code> link in the alarm summary to get here.</p>
+                  <p>Follow the <code>processWithComment</code>, <code>forceProcess</code>, or <code>process</code> link in the alarm to get here.</p>
                 </section>
               </div>
             </div>
@@ -1452,10 +1488,148 @@
           <h1 id="tag-Divisions" class="swagger-summary-tag" data-traverse-target="tag-Divisions">Divisions</h1>
           <div class="tag-description doc-row">
             <div class="doc-copy">
-              <p>These methods provide access to the Command Centre divisions that are available to the REST client. Call <code>/api</code> and use the link at <code>features.{your_feature}.divisions.href</code> to retrieve the divisions in which the REST operator has privileges for that feature, alarms or events. Pick out the ones of interest and use those IDs in event, alarm, or item searches to make them more efficient.</p>
-              <p>Or, following a division&#39;s link from a reception item to retrieve the visitor management configuration for that reception&#39;s division.</p>
+              <p>These methods provide access to the Command Centre divisions that are available to the REST client. Call <code>/api</code> and use the link at <code>features.{your_feature}.divisions.href</code> to retrieve the divisions in which the REST operator has privileges for that feature. Pick out the ones of interest and use those IDs in event, alarm, or item searches if you don&#39;t want the search to scan everything.</p>
+              <p>Or, you may end up here by following a division&#39;s link from a reception item when you need to retrieve the visitor management configuration for that reception&#39;s division.</p>
               <h3 id="licensing">Licensing</h3>
               <p>Every REST licence enables the divisions controller: RESTEvents, RESTCreateEvents, RESTCardholders, RESTStatus, and RESTOverrides.</p>
+            </div>
+          </div>
+          <div id="operation--api-divisions-post" class="operation panel" data-traverse-target="operation--api-divisions-post">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Divisions">Divisions</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">Create a division</span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">POST</span>
+                  <span class="operation-path">/api/divisions</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-description">
+                  <p>Creates a new division.</p>
+                  <p>The POST expects a document in the same format as the
+                    <a href="#definition-Division">the division detail</a> but with far fewer fields. An example is
+                    <a href="#definition-Division-PATCH-and-POST-example">this POST example</a>. The only mandatory field is <code>parent</code>.</p>
+                  <p>When successful it returns a <code>location</code> header containing the address of the new division.</p>
+                  <p>Note that you can only create one division per POST.</p>
+                  <p>Do not code this URL into your application. Take it from the results of <code>GET /api</code>.</p>
+                  <p><code>/api</code> only shows API features for which you have the necessary licence.</p>
+                  <p>Creating a division requires the RESTCardholders licence.</p>
+                  <p>Creating divisions is new to 9.00.</p>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-request-body">
+                  <div class="prop-row">
+                    <div class="prop-name">
+                      <div class="swagger-request-model">
+                        <span class="">
+                          <a class="json-schema-ref" href="#/definitions/Division PATCH and POST example">Division PATCH and POST example</a>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="prop-value columns small-6">
+                      <!-- <div class="swagger-request-description"> -->
+                      <p>The only required field here is the new division&#39;s parent. All divisions (except the root) must have a parent.</p>
+                      <!-- </div> -->
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Request Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;Long division&quot;</span>,
+  <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Quatermasters&quot;</span>,
+  <span class="hljs-attr">&quot;notes&quot;</span>: <span class="hljs-string">&quot;A very long string.&quot;</span>,
+  <span class="hljs-attr">&quot;parent&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
+  }
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">201 Created</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success. Check the response body for feedback about your request.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">400 Bad Request</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The body of the POST did not describe a valid division. This includes not specifying a parent division. Or it may be that you tried to give the new division the same name as an existing one. Or you may have tried to set the new division&#39;s parent to a division that is not visible to you.</p>
+                      <p>See the body of the response for help.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">403 Forbidden</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The operator does not have a privilege on the parent division that allows creating divisions inside it (&#39;Configure Site&#39; or &#39;Edit Divisions&#39;), or the server has reached its licensed limit of divisions.</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Response Headers
+                    <span>(201 Created)</span>
+                  </h5>
+                  <section class="swagger-response-headers">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th class="swagger-response-header-name"></th>
+                          <th class="swagger-response-header-description"></th>
+                          <th class="swagger-response-header-data-type"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr class="swagger-response-header-location">
+                          <td> location
+                            <td>
+                              <p>The href of the new division.</p>
+                            </td>
+                            <td>
+                              <span class="json-property-type">string</span>
+                              <span class="json-property-format">(url)</span>
+                              <span class="json-property-range" title="Value limits"></span>
+                            </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </section>
+                </section>
+              </div>
             </div>
           </div>
           <div id="operation--api-divisions--operation--get" class="operation panel" data-traverse-target="operation--api-divisions--operation--get">
@@ -1749,7 +1923,7 @@
                       <div class="prop-title">404 Not Found</div>
                     </div>
                     <div class="prop-value">
-                      <p>That is not the href of a division or you do not have privileges to read divisions (View Site, Configure Site, or Advanced User).</p>
+                      <p>That is not the href of a division or you do not have privileges to read divisions (View Site, Configure Site, Edit Divisions, or Advanced User).</p>
                     </div>
                   </div>
                 </section>
@@ -1811,6 +1985,206 @@
                   <!-- </div> -->
                 </section>
               </div>
+            </div>
+          </div>
+          <div id="operation--api-divisions--id--patch" class="operation panel" data-traverse-target="operation--api-divisions--id--patch">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Divisions">Divisions</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">Update a division</span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">PATCH</span>
+                  <span class="operation-path">/api/divisions/{id}</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-description">
+                  <p>This is the call you use to update a division&#39;s name, description, notes, or parent.</p>
+                  <p>The PATCH expects a document in the same format as the
+                    <a href="#definition-Division">the division detail</a> but with fewer valid fields. An example is
+                    <a href="#definition-Division-PATCH-and-POST-example">this PATCH example</a>.</p>
+                  <p>Patching divisions is new to 9.00.</p>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-request-body">
+                  <div class="prop-row">
+                    <div class="prop-name">
+                      <div class="swagger-request-model">
+                        <span class="">
+                          <a class="json-schema-ref" href="#/definitions/Division PATCH and POST example">Division PATCH and POST example</a>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="prop-value columns small-6">
+                      <!-- <div class="swagger-request-description"> -->
+                      <p>There are no mandatory fields.</p>
+                      <!-- </div> -->
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Request Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;Long division&quot;</span>,
+  <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Quatermasters&quot;</span>,
+  <span class="hljs-attr">&quot;notes&quot;</span>: <span class="hljs-string">&quot;A very long string.&quot;</span>,
+  <span class="hljs-attr">&quot;parent&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
+  }
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">200 OK</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success. The response body will contain feedback from the server about your PATCH.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">204 No Content</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">400 Bad Request</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The body of the PATCH did not describe a valid division. See the body of the response for help on what went wrong. It may be that you tried to use the name of another division: no two items of the same type can have the same name. Or you may have tried to set the division&#39;s parent to a division that is not visible to you.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">403 Forbidden</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The operator has a privilege that allows viewing the division but not modifying it, or you tried to set a parent on the root division, or you tried to set the parent to a division you cannot configure, or the server is missing the necessary licence.</p>
+                      <p>You need either the &#39;Configure Site&#39; or &#39;Edit Divisions&#39; privilege on the division you are changing. You also need it on the new parent, if you are changing that.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">404 Not Found</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>That is not the URL of a division or the operator does not have the privilege to view that division. This probably means you have built the URL yourself instead of taking it from the results of a
+                        <a href="#operation--api-divisions--operation--get">GET</a>.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">409 Conflict</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The item is locked for editing by another operator. The body of the response will tell you which operator is holding the lock.</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples"> </div>
+            </div>
+          </div>
+          <div id="operation--api-divisions--id--delete" class="operation panel" data-traverse-target="operation--api-divisions--id--delete">
+            <!-- <section class="operation-tags row"> -->
+            <!-- <div class="doc-copy"> -->
+            <div class="operation-tags">
+              <a class="label" href="#tag-Divisions">Divisions</a>
+              <!---->
+            </div>
+            <!-- </div> -->
+            <!-- </section> -->
+            <h2 class="operation-title">
+              <span class="operation-summary">Remove a division</span>
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-path">
+                  <span class="operation-method">DELETE</span>
+                  <span class="operation-path">/api/divisions/{id}</span>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-operation-description">
+                  <p>This call removes a division from Command Centre.</p>
+                  <p>Deleting divisions is new to 9.00.</p>
+                </section>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy"> </div>
+              <div class="doc-examples"></div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="swagger-responses">
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">204 No Content</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Success.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">400 Bad Request</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>Deleting the division failed. This happens when the division is not empty or is still being used by another item (such as an operator group).</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">403 Forbidden</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>The operator has the permission to view the division but not delete it, or the server is not licensed for the operation.</p>
+                    </div>
+                  </div>
+                  <div class="prop-row prop-group">
+                    <div class="prop-name">
+                      <div class="prop-title">404 Not Found</div>
+                    </div>
+                    <div class="prop-value">
+                      <p>That is not the URL of a division, or the operator is not privileged to view it.</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="doc-examples"> </div>
             </div>
           </div>
           <h1 id="tag-Events" class="swagger-summary-tag" data-traverse-target="tag-Events">Events</h1>
@@ -1976,9 +2350,11 @@
                   <p>1000 event types sounds like a lot, but be aware that you cannot delete event types, and the only thing you can modify on an existing event type is its name. Their event type group and item types are permanent once you save them from the utility. Please plan carefully, and take backups!</p>
                   <h4 id="usable-source-items">Usable source items</h4>
                   <p>Every event needs a source item. You can let the server pick one for you (it will use the REST Client item identified by your API key) or you can use any item that has an &#39;Event Response&#39; tab in its Configuration Client window (which is most of them). Our existing integrations use items like doors, external system items, and cameras.</p>
-                  <p>Cardholders do not have an &#39;Event Response&#39; tab so cannot be event sources, but...</p>
+                  <p>If you allow the server to default to your REST client item as the source, or if specify it yourself, your operator must have &#39;Create events and alarms&#39; in at least one division for the call to succeed. Any division will do. Otherwise you&#39;ll receive a 403.</p>
+                  <p>If you specify a source item to a server running 8.90 or later and that item is not your REST Client item, your operator must have the &#39;Create events and alarms&#39; privilege in that item&#39;s division. In older versions it was enough for your operator to have that privilege in any division.</p>
+                  <p>Cardholders cannot be event sources because they do not have an &#39;Event Response&#39; tab, but...</p>
                   <h4 id="related-items">Related items</h4>
-                  <p>Along with a source, you can link other items to the events you create. If you link a cardholder, for example, your events will show on an activity report generated for that cardholder. To link an item your operator must have a privilege that allows viewing it (such as &#39;View cardholders&#39; or &#39;View site&#39;).</p>
+                  <p>Along with a source, you can link other items to the events you create. If you link a cardholder, for example, your events will show on an activity report generated for that cardholder. To link an item your operator must have a privilege that allows viewing it (&#39;View cardholders&#39; for cardholders or &#39;View site&#39; for most other item types).</p>
                   <h4 id="action-plans">Action plans</h4>
                   <p>An event can fire an action plan, which will</p>
                   <ul>
@@ -2094,6 +2470,7 @@
                     </div>
                     <div class="prop-value">
                       <p>The parameters are invalid. Check the body of the response for an error message.</p>
+                      <p>8.90 and later will reject the POST with a 400 if your event specifies a source item that is not your REST Client item and your operator does not have &#39;Create Events and Alarms&#39; on its division.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -2102,7 +2479,6 @@
                     </div>
                     <div class="prop-value">
                       <p>The site does not have the RESTCreateEvents licence (in which case the body of the response will say so) or operator does not have the &#39;Create Events and Alarms&#39; privilege.</p>
-                      <p>A future version of Command Centre will reject the POST with a 403 if your event specifies a source item and the operator does not have &#39;Create Events and Alarms&#39; on that item&#39;s division.</p>
                     </div>
                   </div>
                 </section>
@@ -2200,7 +2576,10 @@
                       </div>
                     </div>
                     <div class="prop-value">
-                      <p>Restricts events to those that occurred at or after this time. It must an ISO-8601 date or date-time with a timezone specifier.</p>
+                      <p>Restricts events to those that occurred at or after this time.</p>
+                      <p>The server accepts extended ISO-8601 time stamp formats. There must be hyphen separators in the date and colons in the time, and a <code>T</code> separating the two.</p>
+                      <p>For predictable results you should also add a timezone specifier. A <code>Z</code> means UTC and is recommended, but <code>+hh</code>, <code>+hhmm</code>, and <code>+hh:mm</code> also work. Note that you need to encode plus-signs as <code>%2b</code> in a URL.</p>
+                      <p>If you omit the time, the server will assume midnight. If you omit just the seconds, the server will take it to the top of the minute, <code>:00</code>.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -2214,7 +2593,8 @@
                       </div>
                     </div>
                     <div class="prop-value">
-                      <p>Restricts events to those that occurred before this time. It must be an ISO-8601 date or date-time with a timezone specifier. Events that occurred at this exact time (to the second) will not appear in the results. For example, to collect all events that occurred on 1 January 2017, use <code>after=2017-01-01Z,before=2017-01-02Z</code>. You will not receive any events from 2 January.</p>
+                      <p>Restricts events to those that occurred before this time. Events that occurred at this exact time (to the second) will not appear in the results. For example, to collect all events that occurred on 1 January 2017, use <code>after=2017-01-01Z,before=2017-01-02Z</code>. You will not receive any events from 2 January.</p>
+                      <p>The <code>after</code> parameter (above) describes the time stamp formats that the server accepts.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">
@@ -3157,7 +3537,14 @@
             <div class="doc-row">
               <div class="doc-copy">
                 <section class="swagger-operation-description">
-                  <p>Retrieves the list of event type groups and the event types within those groups. Useful for obtaining IDs to use in event filters. There are about 1000 event types, divided into about 150 groups. Each event type is in one group.</p>
+                  <p>Retrieves the list of event type groups and the event types within those groups. Useful for obtaining IDs to use in event filters. Command Centre ships with about 1000 event types divided into about 150 groups. Each event type is in one group.</p>
+                  <p>A site may rename the 30 groups dedicated to external event types—that is, event types for the site&#39;s own use—and may create another 970 event types for them.</p>
+                  <p>The results of this query vary with:</p>
+                  <ul>
+                    <li>the server version,</li>
+                    <li>extra Gallagher software installed on the site, and</li>
+                    <li>changes to external event groups and types made by the customer.</li>
+                  </ul>
                   <p>Event type identifiers do not often change between Command Centre versions, but the types in each group do. Therefore if you choose to use groups in filters rather than types you may find that your filter catches more or fewer event types after a Command Centre upgrade. That may be desirable if, for example, you are intested in a class of event and you want to grow with CC as it grows new features. If you want to catch all &#39;access denied&#39;s, for example. We frequently add new varieties of &#39;access denied&#39;. If you do not want that, use types rather than groups.</p>
                   <p>Do not code this URL into your application. Take it from <code>events.eventGroups.href</code> in the results of <code>GET /api</code>.</p>
                 </section>
@@ -3240,14 +3627,15 @@
               <p>These methods let you find items for your search filters and events, and monitor their states. They return all items, including those that this API does not yet support in depth, and items added by customisations. However because they do not have deep knowledge of item types they can only give you the most basic fields.</p>
               <h3 id="searching-for-items">Searching for items</h3>
               <p>Use the search methods when you are building a filter for an
-                <a href="#operation--api-events-get">event search</a> and need the ID of an item or an item type, or when you are
+                <a href="#operation--api-events-get">event search</a> or a
+                <a href="#operation--api-items-updates-post">status subscription</a> and need the ID of an item or an item type, or when you are
                 <a href="#operation--api-events-post">creating an event</a> and need an href to use as the event source.</p>
-              <p>To find an item, pass a substring of its name to the link at <code>features.items.items.href</code> in the results of a call to <code>/api</code>. If you are sure of its name, place the name inside <code>&quot;</code> quotes, and it will use a full (though case-insensitive) string match.</p>
-              <p>To limit the search to items of a particular type, first get the ID of the type you are after using the link at <code>features.items.itemTypes.href</code> in the results of <code>/api</code>. Add that ID as the <code>type</code> parameter to the call above. You can specify multiple item types if, for example, you are interested in all the different kinds of doors.</p>
+              <p>To find an item, pass a substring of its name to the link at <code>features.items.items.href</code> in the results of a call to <code>/api</code>. If you are sure of its name, place the name inside <code>&quot;</code> quotes, and it will use a full string match. Both types of search are case-insensitive.</p>
+              <p>To limit the search to items of a particular type, first get the ID of the type you are after using the link at <code>features.items.itemTypes.href</code> in the results of <code>GET /api</code>. Add that ID as the <code>type</code> parameter to the call above. You can specify multiple item types if, for example, you are interested in all the different kinds of doors.</p>
               <p>For example, if you were after a list of divisions, following the instructions above on the current versions of Command Centre would produce the URL <code>/api/items?type=15</code>.</p>
               <h3 id="status-subscriptions">Status subscriptions</h3>
               <p>The
-                <a href="rest.html">item-specific APIs</a> monitor only one item at a time, and are therefore not suitable for watching large collections. If you have CC version 8.30 or later, you should use the status subscription methods instead. We have tested subscriptions of 1000 items, and while the calls do not impose an upper bound on that we suggest keeping a watchful eye on the performance of the overall system if you go much higher.</p>
+                <a href="rest.html">item-specific APIs</a> monitor only one item at a time, and are therefore not suitable for watching large collections. If you have CC version 8.30 or later, you should use the status subscription methods instead. We have tested subscriptions of 1000 items without noticing undue strain on the server. While the calls do not impose an upper bound on that we suggest keeping a watchful eye on the performance of the overall system if you go much higher.</p>
               <p>The basic operations for monitoring item states is:</p>
               <ol>
                 <li>
@@ -4111,16 +4499,19 @@
       <span class="hljs-attr">&quot;comment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/comment&quot;</span>
       },
+      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      },
       <span class="hljs-attr">&quot;acknowledgeWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
       },
-      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
-        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      <span class="hljs-attr">&quot;process&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
       <span class="hljs-attr">&quot;processWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
-      <span class="hljs-attr">&quot;process&quot;</span>: {
+      <span class="hljs-attr">&quot;forceProcess&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       }
     }
@@ -4239,16 +4630,19 @@
       <span class="hljs-attr">&quot;comment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/comment&quot;</span>
       },
+      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      },
       <span class="hljs-attr">&quot;acknowledgeWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
       },
-      <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
-        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+      <span class="hljs-attr">&quot;process&quot;</span>: {
+        <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
       <span class="hljs-attr">&quot;processWithComment&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       },
-      <span class="hljs-attr">&quot;process&quot;</span>: {
+      <span class="hljs-attr">&quot;forceProcess&quot;</span>: {
         <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
       }
     }
@@ -4523,6 +4917,26 @@
                         </dl>
                       </section>
                     </dt>
+                    <dt data-property-name="acknowledge" class="has-description">
+                      <span class="json-property-name">acknowledge:</span>
+                      <span class="json-property-type">object</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>POST an alarm update request JSON object to the href to acknowledge an alarm. Missing if the system has mandatory alarm notes on for this alarm, or if the alarm is already acknowledged.</p>
+                    </dd>
+                    <dt class="json-inner-schema">
+                      <section class="json-schema-properties">
+                        <dl>
+                          <dt data-property-name="href">
+                            <span class="json-property-name">href:</span>
+                            <span class="json-property-type">string</span>
+                            <span class="json-property-format">(url)</span>
+                            <span class="json-property-range" title="Value limits"></span>
+                          </dt>
+                        </dl>
+                      </section>
+                    </dt>
                     <dt data-property-name="acknowledgeWithComment" class="has-description">
                       <span class="json-property-name">acknowledgeWithComment:</span>
                       <span class="json-property-type">object</span>
@@ -4543,13 +4957,13 @@
                         </dl>
                       </section>
                     </dt>
-                    <dt data-property-name="acknowledge" class="has-description">
-                      <span class="json-property-name">acknowledge:</span>
+                    <dt data-property-name="process" class="has-description">
+                      <span class="json-property-name">process:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>POST an alarm update request JSON object to the href to acknowledge an alarm. Missing if the system has mandatory alarm notes on for this alarm, or if the alarm is already acknowledged.</p>
+                      <p>POST an alarm update request JSON object to the href to process an alarm. Missing if the system has mandatory alarm notes on for this alarm. Missing if the alarm cannot be processed (if it is active, for example).</p>
                     </dd>
                     <dt class="json-inner-schema">
                       <section class="json-schema-properties">
@@ -4583,13 +4997,13 @@
                         </dl>
                       </section>
                     </dt>
-                    <dt data-property-name="process" class="has-description">
-                      <span class="json-property-name">process:</span>
+                    <dt data-property-name="forceProcess" class="has-description">
+                      <span class="json-property-name">forceProcess:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
                     <dd>
-                      <p>POST an alarm update request JSON object to the href to process an alarm. Missing if the system has mandatory alarm notes on for this alarm. Missing if the alarm cannot be processed (if it is active, for example).</p>
+                      <p>POST an alarm update request JSON object to this href to process an active alarm. Missing if the alarm is not active (in which case you will have <code>process</code> and <code>processWithComment</code> links instead).</p>
                     </dd>
                     <dt class="json-inner-schema">
                       <section class="json-schema-properties">
@@ -4646,16 +5060,19 @@
   <span class="hljs-attr">&quot;comment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/comment&quot;</span>
   },
+  <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+  },
   <span class="hljs-attr">&quot;acknowledgeWithComment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
   },
-  <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
-    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+  <span class="hljs-attr">&quot;process&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
   <span class="hljs-attr">&quot;processWithComment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
-  <span class="hljs-attr">&quot;process&quot;</span>: {
+  <span class="hljs-attr">&quot;forceProcess&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   }
 }
@@ -4832,16 +5249,19 @@
   <span class="hljs-attr">&quot;comment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/comment&quot;</span>
   },
+  <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+  },
   <span class="hljs-attr">&quot;acknowledgeWithComment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
   },
-  <span class="hljs-attr">&quot;acknowledge&quot;</span>: {
-    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/acknowledge&quot;</span>
+  <span class="hljs-attr">&quot;process&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
   <span class="hljs-attr">&quot;processWithComment&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
-  <span class="hljs-attr">&quot;process&quot;</span>: {
+  <span class="hljs-attr">&quot;forceProcess&quot;</span>: {
     <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/alarms/92210/process&quot;</span>
   },
   <span class="hljs-attr">&quot;details&quot;</span>: <span class="hljs-string">&quot;Forced door&quot;</span>,
@@ -5076,7 +5496,7 @@
                     </dt>
                     <dd>
                       <p>This is a link to an
-                        <a href="#operation--api-events-updates-get">updates</a> call. Follow it to make a blocking call to collect more events. If there are none, the call will block until one arrives or the call times out. This link will contain your column select, pagination, and filtering parameters (fields, top, after, before, source, type, etc.) but it drops &#39;deadline&#39;. You need to add that to each call.</p>
+                        <a href="#operation--api-events-updates-get">updates</a> call. Follow it to make a blocking call to collect more events. If there are none, the call will block until one arrives or the call times out. This link will contain your column select, pagination, and filtering parameters (<code>fields</code>, <code>top</code>, <code>after</code>, <code>before</code>, <code>source</code>, <code>type</code>, etc.) but it drops <code>deadline</code>. You need to add that to each call.</p>
                     </dd>
                     <dt class="json-inner-schema">
                       <section class="json-schema-properties">
@@ -5270,7 +5690,7 @@
                       <span class="json-property-range" title="Value limits">x ≥ 2</span>
                     </dt>
                     <dd>
-                      <p>If an event arrives with the same essential properties as a previous event, the server will start counting them. Each is still individually addressable, but the first in the group will also have this property. It only appears on the first, and it does not appear if the event is a singleton.</p>
+                      <p>If an event arrives with the same essential properties as a previous event, the server will start counting them. Each event is still individually addressable and will appear in the API as normal, but the first in the group will also have this property. It only appears on the first, and it does not appear if the event is a singleton.</p>
                       <p>If present on an event&#39;s detail or alarm page, there will also be a <code>lastOccurrenceTime</code>.</p>
                       <p>Outside of the <code>alarm</code> block, which contains an alarm&#39;s state, this is the only field on an event that can change.</p>
                     </dd>
@@ -6147,11 +6567,12 @@
                       <span class="json-property-name">type:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>This is a mandatory field in an event. Without it, the POST will fail.</p>
                       <p>It is mandatory because the server cannot assume a reasonable default. It can for the others.</p>
-                      <p>If your server is running 8.90 <code>eventType</code> is a synonym. If you send both a <code>type</code> block and an <code>eventType</code> block it will use <code>eventType</code>.</p>
+                      <p>If your server is running 8.90 or later, <code>eventType</code> is a synonym. If you send both a <code>type</code> block and an <code>eventType</code> block it will use <code>eventType</code>.</p>
                     </dd>
                     <dt class="json-inner-schema">
                       <section class="json-schema-properties">
@@ -6173,6 +6594,7 @@
                       <span class="json-property-name">eventType:</span>
                       <span class="json-property-type">object</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dd>
                       <p>Synonym for <code>type</code>, introduced in 8.90.</p>
@@ -6197,7 +6619,7 @@
                     <dd>
                       <p>This block should contain the href of the item you wish to use as the source of your event. It can be any site item to which your operator has view access including all hardware, access zones, fence zones, doors, lockers, car parks, servers, external systems, and many other item types. If you do not supply one Command Centre will use the REST Client item identified by the API key in the <code>Authorization</code> header.</p>
                       <p>Cardholders cannot be event sources. To relate a cardholder to your event, use the <code>cardholder</code> block.</p>
-                      <p>Make sure that your operator has the &#39;Create Events and Alarms&#39; privilege on this item&#39;s division. Future versions of Command Centre will require it.</p>
+                      <p>Make sure that your operator has the &#39;Create Events and Alarms&#39; privilege on this item&#39;s division. 8.90 and later insist on it.</p>
                       <p>The API will use the source&#39;s division as the event&#39;s division.</p>
                     </dd>
                     <dt class="json-inner-schema">
@@ -7037,6 +7459,92 @@
               </div>
             </div>
           </div>
+          <div id="definition-Division-PATCH-and-POST-example" class="definition panel" data-traverse-target="definition-Division-PATCH-and-POST-example">
+            <h2 class="panel-title">
+              <a name="/definitions/Division PATCH and POST example"></a>Division PATCH and POST example: object
+              <!-- <span class="json-property-type"><span class="json-property-type">object</span>
+              <span class="json-property-range" title="Value limits"></span>
+              
+              
+              </span> -->
+            </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <section class="json-schema-description">
+                  <p>This is an example of a PATCH you could use to update a division, and a POST you could use to create one.</p>
+                  <p>When POSTing, <code>parent</code> is mandatory.</p>
+                </section>
+                <section class="json-schema-properties">
+                  <dl>
+                    <dt data-property-name="name" class="has-description">
+                      <span class="json-property-name">name:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The division&#39;s name. If you supply a name and another division already exists with that name, the call will fail. If you leave it blank in a POST, Command Centre will pick value for you.</p>
+                    </dd>
+                    <dt data-property-name="description" class="has-description">
+                      <span class="json-property-name">description:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>The division&#39;s description.</p>
+                    </dd>
+                    <dt data-property-name="notes" class="has-description">
+                      <span class="json-property-name">notes:</span>
+                      <span class="json-property-type">string</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>A string, able to me much longer than <code>description</code>, suitable for holding notes about the division.</p>
+                    </dd>
+                    <dt data-property-name="parent" class="has-description">
+                      <span class="json-property-name">parent:</span>
+                      <span class="json-property-type">object</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>An object containing an href to the division entity representing the current division&#39;s parent.</p>
+                      <p>Required when creating a new division, because only root divisions can be unparented and you cannot create a new one of those.</p>
+                    </dd>
+                    <dt class="json-inner-schema">
+                      <section class="json-schema-properties">
+                        <dl>
+                          <dt data-property-name="href">
+                            <span class="json-property-name">href:</span>
+                            <span class="json-property-type">string</span>
+                            <span class="json-property-format">(url)</span>
+                            <span class="json-property-range" title="Value limits"></span>
+                          </dt>
+                        </dl>
+                      </section>
+                    </dt>
+                  </dl>
+                </section>
+              </div>
+              <div class="doc-examples">
+                <section>
+                  <h5>Example</h5>
+                  <!-- <div class="hljs"> -->
+                  <html>
+                  <head></head>
+                  <body><pre><code class="hljs language-json">{
+  <span class="hljs-attr">&quot;name&quot;</span>: <span class="hljs-string">&quot;Long division&quot;</span>,
+  <span class="hljs-attr">&quot;description&quot;</span>: <span class="hljs-string">&quot;Quatermasters&quot;</span>,
+  <span class="hljs-attr">&quot;notes&quot;</span>: <span class="hljs-string">&quot;A very long string.&quot;</span>,
+  <span class="hljs-attr">&quot;parent&quot;</span>: {
+    <span class="hljs-attr">&quot;href&quot;</span>: <span class="hljs-string">&quot;https://localhost:8904/api/divisions/2&quot;</span>
+  }
+}
+</code></pre> </body>
+                  </html>
+                  <!-- </div> -->
+                </section>
+              </div>
+            </div>
+          </div>
           <div id="definition-Item-search" class="definition panel" data-traverse-target="definition-Item-search">
             <h2 class="panel-title">
               <a name="/definitions/Item search"></a>Item search: object
@@ -7572,6 +8080,7 @@
                       <span class="json-property-name">itemIds:</span>
                       <span class="json-property-type">string[]</span>
                       <span class="json-property-range" title="Value limits"></span>
+                      <span class="json-property-required"></span>
                     </dt>
                     <dt class="json-inner-schema">
                       <section class="json-schema-array-items">
