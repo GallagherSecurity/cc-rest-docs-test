@@ -2737,7 +2737,7 @@ definitions:
         example: mobile
       trace:
         description: |
-          If set, badging this card will generate an event.
+          If set, using this credential will generate an event.
 
           This field is not in the default set so you will not see it unless you ask for it using
           the `fields` query parameter.
@@ -2807,6 +2807,12 @@ definitions:
         readOnly: true
         type: boolean
         example: false
+      credentialId:
+        description:  Reserved for use by Gallagher applications.
+        example: "reserved"
+      bleFacilityId:
+        description:  Reserved for use by Gallagher applications.
+        example: "reserved"
 
   Cardholder card mobile example:
     description: |
