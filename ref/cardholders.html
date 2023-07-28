@@ -5077,7 +5077,8 @@
       <span class="hljs-attr">&quot;maximumNumber&quot;</span>: <span class="hljs-string">&quot;16777215&quot;</span>,
       <span class="hljs-attr">&quot;serverDisplayName&quot;</span>: <span class="hljs-string">&quot;ruatoria.satellite.int&quot;</span>,
       <span class="hljs-attr">&quot;regex&quot;</span>: <span class="hljs-string">&quot;^[A-Za-z0-9]+$&quot;</span>,
-      <span class="hljs-attr">&quot;regexDescription&quot;</span>: <span class="hljs-string">&quot;Only alphanumeric characters&quot;</span>
+      <span class="hljs-attr">&quot;regexDescription&quot;</span>: <span class="hljs-string">&quot;Only alphanumeric characters&quot;</span>,
+      <span class="hljs-attr">&quot;defaultExpiry&quot;</span>: <span class="hljs-string">&quot;Reserved&quot;</span>
     }
   ],
   <span class="hljs-attr">&quot;next&quot;</span>: {
@@ -10711,8 +10712,9 @@
                         <span class="json-property-enum-item">govPass</span>,
                         <span class="json-property-enum-item">mobile</span>,
                         <span class="json-property-enum-item">piv</span>,
-                        <span class="json-property-enum-item">piv-i</span>,
-                        <span class="json-property-enum-item">trackingTag</span>
+                        <span class="json-property-enum-item">pivi</span>,
+                        <span class="json-property-enum-item">trackingTag</span>,
+                        <span class="json-property-enum-item">transact</span>
                       </span>
                       <span class="json-property-range" title="Value limits"></span>
                       <span class="json-property-read-only"></span>
@@ -14265,7 +14267,8 @@
       <span class="hljs-attr">&quot;maximumNumber&quot;</span>: <span class="hljs-string">&quot;16777215&quot;</span>,
       <span class="hljs-attr">&quot;serverDisplayName&quot;</span>: <span class="hljs-string">&quot;ruatoria.satellite.int&quot;</span>,
       <span class="hljs-attr">&quot;regex&quot;</span>: <span class="hljs-string">&quot;^[A-Za-z0-9]+$&quot;</span>,
-      <span class="hljs-attr">&quot;regexDescription&quot;</span>: <span class="hljs-string">&quot;Only alphanumeric characters&quot;</span>
+      <span class="hljs-attr">&quot;regexDescription&quot;</span>: <span class="hljs-string">&quot;Only alphanumeric characters&quot;</span>,
+      <span class="hljs-attr">&quot;defaultExpiry&quot;</span>: <span class="hljs-string">&quot;Reserved&quot;</span>
     }
   ],
   <span class="hljs-attr">&quot;next&quot;</span>: {
@@ -14370,8 +14373,13 @@
                       <span class="json-property-type">string</span>
                       <span class="json-property-enum" title="Possible values">
                         <span class="json-property-enum-item">piv</span>,
+                        <span class="json-property-enum-item">pivi</span>,
                         <span class="json-property-enum-item">card</span>,
-                        <span class="json-property-enum-item">mobile</span>
+                        <span class="json-property-enum-item">mobile</span>,
+                        <span class="json-property-enum-item">digitalId</span>,
+                        <span class="json-property-enum-item">govPass</span>,
+                        <span class="json-property-enum-item">trackingTag</span>,
+                        <span class="json-property-enum-item">transact</span>
                       </span>
                       <span class="json-property-range" title="Value limits"></span>
                     </dt>
@@ -14415,6 +14423,14 @@
                     <dd>
                       <p>Regular expressions often need explaining.</p>
                     </dd>
+                    <dt data-property-name="defaultExpiry" class="has-description">
+                      <span class="json-property-name">defaultExpiry:</span>
+                      <span class="json-property-type">object</span>
+                      <span class="json-property-range" title="Value limits"></span>
+                    </dt>
+                    <dd>
+                      <p>Reserved for internal use.</p>
+                    </dd>
                   </dl>
                 </section>
               </div>
@@ -14446,7 +14462,8 @@
   <span class="hljs-attr">&quot;maximumNumber&quot;</span>: <span class="hljs-string">&quot;16777215&quot;</span>,
   <span class="hljs-attr">&quot;serverDisplayName&quot;</span>: <span class="hljs-string">&quot;ruatoria.satellite.int&quot;</span>,
   <span class="hljs-attr">&quot;regex&quot;</span>: <span class="hljs-string">&quot;^[A-Za-z0-9]+$&quot;</span>,
-  <span class="hljs-attr">&quot;regexDescription&quot;</span>: <span class="hljs-string">&quot;Only alphanumeric characters&quot;</span>
+  <span class="hljs-attr">&quot;regexDescription&quot;</span>: <span class="hljs-string">&quot;Only alphanumeric characters&quot;</span>,
+  <span class="hljs-attr">&quot;defaultExpiry&quot;</span>: <span class="hljs-string">&quot;Reserved&quot;</span>
 }
 </code></pre> </body>
                   </html>

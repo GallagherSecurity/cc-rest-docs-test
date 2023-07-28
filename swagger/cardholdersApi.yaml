@@ -2733,7 +2733,7 @@ definitions:
 
           Added in 8.00.
         type: string
-        enum: [ 'card', 'digitalId', 'govPass', 'mobile', 'piv', 'piv-i', 'trackingTag' ]
+        enum: [ 'card', 'digitalId', 'govPass', 'mobile', 'piv', 'pivi', 'trackingTag', 'transact' ]
         example: mobile
       trace:
         description: |
@@ -4662,7 +4662,7 @@ definitions:
         - "Damaged"
       credentialClass:
         type: string
-        enum: [ "piv", "card", "mobile"]
+        enum: [ "piv", "pivi", "card", "mobile", "digitalId", "govPass", "trackingTag", "transact" ]
         example: card
       minimumNumber:
         description: |
@@ -4686,6 +4686,9 @@ definitions:
         description: Regular expressions often need explaining.
         type: string
         example: "Only alphanumeric characters"
+      defaultExpiry:
+        description: Reserved for internal use.
+        example: "Reserved"
 
 ######################################################################
 
