@@ -172,7 +172,10 @@
                     <p>You can create and delete divisions, and modify some basic fields.</p>
                   </li>
                   <li>
-                    <p>A new <code>location</code> block on events greatly simplifies the monitoring of cardholder movements.</p>
+                    <p>A new event type <code>hasLocation</code> greatly simplifies the monitoring of cardholder movements, and</p>
+                  </li>
+                  <li>
+                    <p>a new <code>location</code> block on events greatly simplifies interpreting them.</p>
                   </li>
                 </ul>
                 <h4 id="alarms-and-events-api-changes-in-890">Alarms and events API changes in 8.90</h4>
@@ -2193,6 +2196,16 @@
               <p>Use the GET methods in this API for historical searches or to stay up to date with new events as they occur. Use the POST method (added in version 8.10) to create events of your own.</p>
               <p>There are no PATCH actions on events, because they are immutable. If an event is also an alarm it carries some changeable state and a log of activity and comments, but the underlying event never changes.</p>
               <p>The API only returns events that are still in Command Centre&#39;s database. It will not return events that have been removed, even if they are in an archive file.</p>
+              <h3 id="location-events">Location events</h3>
+              <p>Command Centre has about 100 event types that occur when somebody authenticates at a device, usually by badging a card. Some of those event types also contain the access zone that the person started in, and that they finished in. Version 9.00 introduced some improvements that presented the cardholder and the two zones to API clients in a consistent way:</p>
+              <ul>
+                <li>
+                  <p>A new <code>hasLocation</code> event type that lets you filter for only those events that reveal a cardholder&#39;s location. Use it in the <code>type</code> query parameter as you would normally use an integer event type.</p>
+                </li>
+                <li>
+                  <p>A new <code>location</code> block on an event contains fields containing the cardholder and their location.</p>
+                </li>
+              </ul>
               <h3 id="event-use-cases">Event use cases</h3>
               <h4 id="downloading-the-entire-event-database">Downloading the entire event database</h4>
               <ol>
@@ -2625,6 +2638,7 @@
                       <p>The results may include other event types if you also use the <code>group</code> parameter, below.</p>
                       <p>Use the
                         <a href="#operation--api-events-groups-get">event groups call</a> to see all event types and groups.</p>
+                      <p>In version 9.00 and later use the special value <code>hasLocation</code> to include all event types that can reveal a cardholder&#39;s location or access zone. In 9.00 it is a set of about 80 event types; it may be more in future versions. If you use <code>hasLocation</code> you probably also want to ask for the <code>location</code> block using the <code>fields</code> query parameter.</p>
                     </div>
                   </div>
                   <div class="prop-row prop-group">

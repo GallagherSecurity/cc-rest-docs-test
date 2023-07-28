@@ -48,7 +48,9 @@ info:
 
     * You can create and delete divisions, and modify some basic fields.
 
-    * A new `location` block on events greatly simplifies the monitoring of cardholder movements.
+    * A new event type `hasLocation` greatly simplifies the monitoring of cardholder movements, and
+
+    * a new `location` block on events greatly simplifies interpreting them.
 
     #### Alarms and events API changes in 8.90
 
@@ -196,6 +198,20 @@ tags:
 
     The API only returns events that are still in Command Centre's database.  It will not return
     events that have been removed, even if they are in an archive file.
+
+    ### Location events
+
+    Command Centre has about 100 event types that occur when somebody authenticates at a device,
+    usually by badging a card.  Some of those event types also contain the access zone that the
+    person started in, and that they finished in.  Version 9.00 introduced some improvements that
+    presented the cardholder and the two zones to API clients in a consistent way:
+
+      * A new `hasLocation` event type that lets you filter for only those events that reveal a
+        cardholder's location.  Use it in the `type` query parameter as you would normally use an
+        integer event type.
+
+      * A new `location` block on an event contains fields containing the cardholder and their
+        location.
 
     ### Event use cases
 
@@ -1162,6 +1178,12 @@ paths:
 
           Use the [event groups call](#operation--api-events-groups-get) to see all event types and
           groups.
+
+          In version 9.00 and later use the special value `hasLocation` to include all event types
+          that can reveal a cardholder's location or access zone.  In 9.00 it is a set of about 80
+          event types; it may be more in future versions.  If you use `hasLocation` you probably
+          also want to ask for the `location` block using the `fields` query parameter.
+
       - name: "group"
         in: query
         required: false
